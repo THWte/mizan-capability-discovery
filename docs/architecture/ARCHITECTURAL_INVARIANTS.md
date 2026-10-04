@@ -110,10 +110,19 @@ adapter produced each intermediate stage. If reverse traceability cannot be
 completed for a given item, that item cannot be an Accepted Fact, regardless
 of how confident any downstream interpretation step is.
 
+**The chain must terminate at a fixed, content-addressable Source Artifact,
+not an abstract or mutable reference.** A file path, filename, or engine-local
+reference alone is not a valid terminus: it can be overwritten, moved, or
+re-ingested with different bytes without detection. The terminal Source
+record must include a cryptographic content hash (SHA-256) of the source
+artifact as it existed at extraction time, so that the chain anchors to
+specific, verifiable bytes, not merely to a named location.
+
 **Consequence:** Every adapter must preserve raw, unmodified engine output
 (see the Docling sandbox's `raw_text` field as a concrete precedent) and
 every transformation must be attributable to a specific, identifiable
-processing step.
+processing step, ultimately resolving to a SHA-256-identified Source
+Artifact.
 
 ## 8. Reproducibility Before Optimization
 

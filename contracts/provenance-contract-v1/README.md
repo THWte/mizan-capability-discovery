@@ -17,7 +17,9 @@ recorded and carried through MIZAN's pipeline, implementing:
   engine, which engine version/configuration, which adapter, timestamp,
   source locator).
 - The minimum information needed to walk backward from an Accepted Fact to
-  its original Source without gaps.
+  its original Source Artifact without gaps, terminating at a SHA-256 content
+  hash of that artifact, per
+  [Invariant 7: Complete Reverse Traceability](../../docs/architecture/ARCHITECTURAL_INVARIANTS.md#7-complete-reverse-traceability).
 - How provenance records for raw vs. normalized extraction (see the Docling
   sandbox's `raw_text` / `normalized_text` precedent in
   `sandboxes/docling/adapter.py`) are to be generalized across engines.
