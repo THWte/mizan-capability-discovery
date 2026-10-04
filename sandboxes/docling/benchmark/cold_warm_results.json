@@ -1,0 +1,39 @@
+{
+  "psutil_available": true,
+  "cold_start": {
+    "description": "DoclingAdapter() construction (pipeline init; model load from cache since models were pre-cached in this environment).",
+    "elapsed_seconds": 22.89100000000053,
+    "rss_mb_before": 17.84765625,
+    "rss_mb_after": 337.078125,
+    "rss_delta_mb": 319.23046875,
+    "cpu_times_before": {
+      "user": 0.015625,
+      "system": 0.046875
+    },
+    "cpu_times_after": {
+      "user": 7.453125,
+      "system": 9.0625
+    }
+  },
+  "warm_processing": {
+    "born_digital_ocr_off": {
+      "fixture": "sample_plain_text.pdf",
+      "runs_seconds": [
+        20.375,
+        7.0,
+        2.561999999999898
+      ],
+      "mean_seconds": 9.978999999999965
+    },
+    "scanned_ocr_on": {
+      "fixture": "scanned_arabic_clear.pdf",
+      "runs_seconds": [
+        18.17199999999957,
+        9.875,
+        10.016000000000531
+      ],
+      "mean_seconds": 12.6876666666667
+    },
+    "rss_mb_after_all_runs": 628.265625
+  }
+}
