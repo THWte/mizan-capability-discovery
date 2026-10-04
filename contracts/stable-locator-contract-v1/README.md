@@ -1,7 +1,14 @@
-# Stable Locator Contract v1 (Placeholder)
+# Stable Locator Contract v1
 
-**Status:** Skeleton — not yet specified. No implementation depends on this
-yet.
+**Status:** Reference implementation exists at
+[`contracts/mizan_contracts/stable_locator_v1.py`](../mizan_contracts/stable_locator_v1.py),
+exercised by [`tests/contracts/`](../../tests/contracts/) (AC-07, AC-08,
+AC-09, AC-15, AC-16) and
+[`tests/architecture/test_stable_locator_ownership.py`](../../tests/architecture/test_stable_locator_ownership.py).
+This document remains the human-readable specification; the Python module
+is the normative, versioned, importable contract. Locator survival across
+an actual engine *replacement* remains untested — only one engine adapter
+(Docling) exists today.
 
 ## Purpose
 
@@ -24,10 +31,16 @@ IDs — implementing:
   locators when an underlying engine is replaced or upgraded (answer, per
   Invariant 3: nothing — they must continue to resolve).
 
-## Status of this placeholder
+## Status of this document
 
-This file exists only to reserve the directory and document intent, per the
-IMPLEMENTATION DIRECTIVE that created it. It is **not** a working schema.
-No code should depend on a schema defined here until a follow-up change
-replaces this placeholder with an actual specification and a corresponding
-ADR.
+`contracts/mizan_contracts/stable_locator_v1.py` now implements
+hierarchical, MIZAN-only locator builders (`build_document_locator`,
+`build_page_locator`, `build_block_locator`, `build_span_locator`),
+`validate_locator_component()` (format + banned-engine-pattern checks),
+`validate_hierarchy_consistency()`, and `is_external_engine_identifier()`
+(rejects Docling/MinerU/Qdrant/pgvector/PaddleOCR/raw-row IDs outright) as
+real, importable, versioned (`CONTRACT_VERSION = "v1"`) code, not a JSON
+Schema/protobuf file. See [`tests/contracts/`](../../tests/contracts/) for
+the acceptance-criteria test suite that exercises every rule above, and
+[`docs/architecture/adr/`](../../docs/architecture/adr/) for the
+corresponding ADR once filed.

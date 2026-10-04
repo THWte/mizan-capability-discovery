@@ -53,8 +53,21 @@ def normalize_text(raw_text: str) -> str:
 
 
 def _require_text_pair(raw_text: str, normalized_text: str) -> None:
+    """Enforce that `normalized_text` is genuinely `normalize_text(raw_text)`
+    -- never an independently-supplied value that merely happens to be
+    stored alongside `raw_text`. This is the structural guarantee behind
+    "normalized text cannot silently overwrite/diverge from raw text":
+    a caller cannot smuggle an arbitrary string into `normalized_text`.
+    """
     if raw_text is None or normalized_text is None:
         raise ContractValidationError("raw_text and normalized_text are both required (may be '').")
+    expected = normalize_text(raw_text)
+    if normalized_text != expected:
+        raise ContractValidationError(
+            "normalized_text must equal unicodedata.normalize('NFKC', raw_text); "
+            f"got {normalized_text!r}, expected {expected!r}. normalized_text cannot "
+            "be independently supplied or used to overwrite raw_text's meaning."
+        )
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -188,6 +201,12 @@ class Table:
     def __post_init__(self) -> None:
         if not isinstance(self.cells, tuple):
             raise ContractValidationError("cells must be a tuple of TableCell.")
+        if (self.caption_raw_text is None) != (self.caption_normalized_text is None):
+            raise ContractValidationError(
+                "caption_raw_text and caption_normalized_text must both be set or both be None."
+            )
+        if self.caption_raw_text is not None:
+            _require_text_pair(self.caption_raw_text, self.caption_normalized_text)
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)

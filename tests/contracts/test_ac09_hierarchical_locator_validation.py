@@ -57,3 +57,34 @@ def test_span_without_a_block_is_rejected():
         stable_locator_v1.validate_hierarchy_consistency(
             document_locator, page_locator=page_locator, block_locator=None, span_locator=span_locator
         )
+
+
+def test_span_under_a_sibling_block_on_the_same_page_is_rejected():
+    """A span built under BLOCK-000001 must not validate as consistent with
+    a different, sibling BLOCK-000002 on the same page -- block identity,
+    not just page identity, must match exactly."""
+    document_locator, page_locator, block_locator, span_locator = _build_consistent_chain()
+    sibling_block_locator = stable_locator_v1.build_block_locator(page_locator, 2)
+    assert sibling_block_locator != block_locator
+    with pytest.raises(ContractValidationError):
+        stable_locator_v1.validate_hierarchy_consistency(
+            document_locator,
+            page_locator=page_locator,
+            block_locator=sibling_block_locator,
+            span_locator=span_locator,
+        )
+
+
+@pytest.mark.parametrize(
+    "malformed_locator",
+    [
+        "MIZAN-DOC-000001/BLOCK-000001/PAGE-000001",  # wrong segment order
+        "MIZAN-DOC-1/PAGE-000001",  # sequence not zero-padded to 6 digits
+        "MIZAN-DOC-000001//PAGE-000001",  # empty segment
+        "MIZAN-DOC-000001/PAGE-000001/",  # trailing slash / empty terminal
+        "mizan-doc-000001/PAGE-000001",  # lowercase prefix
+    ],
+)
+def test_malformed_mizan_locator_is_rejected(malformed_locator):
+    with pytest.raises(ContractValidationError):
+        stable_locator_v1.validate_locator_component(malformed_locator, "page")

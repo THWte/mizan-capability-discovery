@@ -15,6 +15,15 @@ _SCANNED_PATHS = (
     _REPO_ROOT / "contracts" / "canonical-contract-v1" / "README.md",
 )
 
+# Full project-wide scan (stronger than AC-02's canonical-only requirement):
+# ALL FOUR contract modules must be engine-independent, per Invariant 1.
+_ALL_CONTRACT_MODULES = (
+    _REPO_ROOT / "contracts" / "mizan_contracts" / "canonical_v1.py",
+    _REPO_ROOT / "contracts" / "mizan_contracts" / "provenance_v1.py",
+    _REPO_ROOT / "contracts" / "mizan_contracts" / "identity_v1.py",
+    _REPO_ROOT / "contracts" / "mizan_contracts" / "stable_locator_v1.py",
+)
+
 
 def test_canonical_contract_files_exist():
     for path in _SCANNED_PATHS:
@@ -51,3 +60,23 @@ def test_canonical_contract_module_has_no_import_statements_for_banned_engines()
     assert imported_names.isdisjoint(_FORBIDDEN), (
         f"canonical_v1.py imports a banned engine module: {imported_names & set(_FORBIDDEN)}"
     )
+
+
+def test_no_core_contract_module_imports_a_banned_engine():
+    """Project-wide strengthening: Invariant 1 applies to every contract,
+    not only Canonical. All four modules must be independently engine-free."""
+    import ast
+
+    for path in _ALL_CONTRACT_MODULES:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        imported_names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_names.add(alias.name.split(".")[0].lower())
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_names.add(node.module.split(".")[0].lower())
+        assert imported_names.isdisjoint(_FORBIDDEN), (
+            f"{path.name} imports a banned engine module: {imported_names & set(_FORBIDDEN)}"
+        )

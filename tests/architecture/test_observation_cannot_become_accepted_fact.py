@@ -1,59 +1,53 @@
 """
-Architecture validation placeholder: Observation cannot become Accepted Fact
-directly.
+Architecture validation: Observation cannot become Accepted Fact directly.
 
 Validates Invariant 2 (Observation != Evidence != Fact != Accepted Fact):
 see docs/architecture/ARCHITECTURAL_INVARIANTS.md#2-observation--evidence--fact--accepted-fact
 
-This is the most directly testable invariant today because the Docling
-sandbox (sandboxes/docling/adapter.py) already implements the first two
-pipeline stages (RAW EXTRACTION / NORMALIZATION) concretely. Even so, this
-suite stays a placeholder here because contracts/canonical-contract-v1/
-(the MIZAN-wide canonical shape, as opposed to the Docling-sandbox-local
-NormalizedDocumentResult shape) does not exist yet -- validating against the
-sandbox-local type would not actually prove the MIZAN-wide invariant holds
-for every engine, only for Docling.
-
-Intended future assertions (once contracts/canonical-contract-v1/ has a
-concrete schema and a reference implementation exists):
-
-1. No adapter-produced object (regardless of engine) exposes a code path
-   that marks its own output as "Accepted Fact" -- that status can only be
-   set by MIZAN's verification layer, never by an adapter or engine.
-2. An Observation (raw engine output) passed into the canonical contract is
-   tagged at the Observation/Evidence stage, never pre-tagged as Fact or
-   Accepted Fact by the adapter itself.
-3. Promotion from Evidence to Fact, and from Fact to Accepted Fact, requires
-   an explicit call into MIZAN's interpretation/verification layers; there
-   is no default or implicit promotion path.
-
-This module intentionally contains no real assertions yet against the
-MIZAN-wide canonical contract. Per architectural convention (see
-tests/architecture/README.md), the test SKIPS with an explicit reason rather
-than being deleted or fabricated as passing.
+Status update (architecture/contracts-v1): contracts/canonical-contract-v1/
+now has a real reference implementation (contracts/mizan_contracts/canonical_v1.py,
+also exercised directly in tests/contracts/test_ac10_*.py). The first
+assertion below is now REAL: it proves, by introspection, that no adapter
+output type exposes a path to self-report as Accepted Fact. The second
+assertion still requires MIZAN's interpretation/verification layers, which
+do not exist yet, and stays SKIP.
 """
 import pytest
 
+from mizan_contracts import canonical_v1
 
-@pytest.mark.skip(
-    reason=(
-        "contracts/canonical-contract-v1/ is a skeleton only (ADR-0001). "
-        "Validating this invariant against the Docling-sandbox-local "
-        "NormalizedDocumentResult type alone would not prove the "
-        "MIZAN-wide invariant for every engine."
-    )
-)
+
 def test_adapter_output_cannot_self_report_as_accepted_fact():
-    raise NotImplementedError(
-        "Implement once contracts/canonical-contract-v1/ defines a "
-        "concrete schema shared across engine adapters."
-    )
+    """No adapter-produced object exposes a code path that marks its own
+    output as 'Accepted Fact' -- that status can only be set by MIZAN's
+    verification layer, never by an adapter or engine."""
+    # The canonical Observation entity itself: no status/promotion surface.
+    _forbidden_exact_names = {"fact", "acceptedfact", "candidatefact", "verifiedfact"}
+    for name in dir(canonical_v1):
+        if name.startswith("_"):
+            continue
+        assert name.lower() not in _forbidden_exact_names, (
+            f"canonical_v1 must not define a Fact-stage type, found {name!r}."
+        )
+
+    import dataclasses
+
+    field_names = {f.name for f in dataclasses.fields(canonical_v1.RawObservation)}
+    assert "status" not in field_names
+    assert "accepted" not in field_names
+
+    # And the module as a whole defines no Fact / Accepted Fact type at all.
+    assert not hasattr(canonical_v1, "Fact")
+    assert not hasattr(canonical_v1, "AcceptedFact")
+    assert not hasattr(canonical_v1, "CandidateFact")
 
 
 @pytest.mark.skip(
     reason=(
         "MIZAN's interpretation/verification layers do not exist yet to "
-        "validate the explicit-promotion-only requirement."
+        "validate the explicit-promotion-only requirement (Evidence -> Fact "
+        "-> Accepted Fact). contracts/mizan_contracts/ only implements the "
+        "Observation stage (Invariant 2), by design, in this change."
     )
 )
 def test_promotion_from_evidence_to_accepted_fact_requires_explicit_verification_call():

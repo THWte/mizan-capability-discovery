@@ -1,7 +1,13 @@
-# Canonical Contract v1 (Placeholder)
+# Canonical Contract v1
 
-**Status:** Skeleton — not yet specified. No implementation depends on this
-yet.
+**Status:** Reference implementation exists at
+[`contracts/mizan_contracts/canonical_v1.py`](../mizan_contracts/canonical_v1.py),
+exercised by [`tests/contracts/`](../../tests/contracts/) (AC-01, AC-02,
+AC-03, AC-10, AC-13, AC-15, AC-16, AC-17). This document remains the
+human-readable specification; the Python module is the normative,
+versioned, importable contract. No engine integration (Docling or
+otherwise) has been changed to depend on it yet — adoption by
+`sandboxes/docling/adapter.py` is a separate, future change.
 
 ## Purpose
 
@@ -21,10 +27,15 @@ into, per
 - Versioning rules for how `canonical-contract-v2` etc. would supersede this
   version without breaking existing Accepted Facts.
 
-## Status of this placeholder
+## Status of this document
 
-This file exists only to reserve the directory and document intent, per the
-IMPLEMENTATION DIRECTIVE that created it. It is **not** a working schema.
-No code should depend on a schema defined here until a follow-up change
-replaces this placeholder with an actual specification (JSON Schema,
-protobuf, or equivalent) and a corresponding ADR.
+`contracts/mizan_contracts/canonical_v1.py` now implements the 10 entities
+described above (`SourceArtifact`, `Document`, `DocumentVersion`, `Page`,
+`Block`, `Span`, `Section`, `Table`, `TableCell`, `RawObservation`) as a
+real, importable, versioned (`CONTRACT_VERSION = "v1"`) Python module with
+enforced validation, not a JSON Schema/protobuf file. It deliberately
+defines no Fact / Accepted Fact type (Invariant 2, Invariant 10). See
+[`tests/contracts/`](../../tests/contracts/) for the acceptance-criteria
+test suite that exercises every rule above, and
+[`docs/architecture/adr/`](../../docs/architecture/adr/) for the
+corresponding ADR once filed.
