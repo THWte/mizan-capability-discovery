@@ -1,0 +1,10 @@
+# Sandbox-local virtual environment and caches — never committed.
+# Fixtures, tests, results, and source code ARE committed; only the
+# locally-built Python environment and run artifacts are excluded.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Scratch log from local test-runner invocations (not a deliverable).
+run_tests_output.log

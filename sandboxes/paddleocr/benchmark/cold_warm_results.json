@@ -1,0 +1,61 @@
+﻿{
+    "note":  "Each path (born_digital, scanned) measured in its own fresh process to avoid the documented, intermittent Windows native-crash risk when mixing conversion types in one long-lived process (see RESULTS.md Windows Stability section). The combined single-process run of benchmark_cold_warm.py crashed (exit -1073741819) on 2/2 attempts before completing; these per-path runs are the real, successfully captured measurements.",
+    "born_digital":  {
+                         "cold_start_seconds":  12.7970000000023,
+                         "rss_before":  27.0390625,
+                         "rss_after_init":  409.06640625,
+                         "rss_final":  780.5078125,
+                         "warm_born_digital_ocr_applied":  [
+                                                               {
+                                                                   "run":  1,
+                                                                   "elapsed_seconds":  29.125,
+                                                                   "success":  true,
+                                                                   "ocr_mode":  "born_digital",
+                                                                   "ocr_applied":  true
+                                                               },
+                                                               {
+                                                                   "run":  2,
+                                                                   "elapsed_seconds":  25.78099999999904,
+                                                                   "success":  true,
+                                                                   "ocr_mode":  "born_digital",
+                                                                   "ocr_applied":  true
+                                                               },
+                                                               {
+                                                                   "run":  3,
+                                                                   "elapsed_seconds":  25.15599999999904,
+                                                                   "success":  true,
+                                                                   "ocr_mode":  "born_digital",
+                                                                   "ocr_applied":  true
+                                                               }
+                                                           ]
+                     },
+    "scanned":  {
+                    "cold_start_seconds":  11.65599999999904,
+                    "rss_before":  21.47265625,
+                    "rss_after_init":  406.6484375,
+                    "rss_final":  639.26171875,
+                    "warm_scanned_ocr_applied":  [
+                                                     {
+                                                         "run":  1,
+                                                         "elapsed_seconds":  22.26599999999962,
+                                                         "success":  true,
+                                                         "ocr_mode":  "scanned",
+                                                         "ocr_applied":  true
+                                                     },
+                                                     {
+                                                         "run":  2,
+                                                         "elapsed_seconds":  22.70300000000134,
+                                                         "success":  true,
+                                                         "ocr_mode":  "scanned",
+                                                         "ocr_applied":  true
+                                                     },
+                                                     {
+                                                         "run":  3,
+                                                         "elapsed_seconds":  24.093999999997322,
+                                                         "success":  true,
+                                                         "ocr_mode":  "scanned",
+                                                         "ocr_applied":  true
+                                                     }
+                                                 ]
+                }
+}

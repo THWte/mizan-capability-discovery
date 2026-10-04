@@ -1,0 +1,45 @@
+{
+  "scanned_arabic_clear.pdf": {
+    "description": "Clear synthetic scanned Arabic paragraph",
+    "expected_file": "scanned_arabic_clear.expected.txt"
+  },
+  "scanned_arabic_numeric.pdf": {
+    "description": "Synthetic scanned Arabic with numbers, date, and amount",
+    "expected_file": "scanned_arabic_numeric.expected.txt"
+  },
+  "scanned_mixed_ar_en.pdf": {
+    "description": "Synthetic scanned mixed Arabic/English document",
+    "expected_file": "scanned_mixed_ar_en.expected.txt"
+  },
+  "scanned_arabic_table.pdf": {
+    "description": "Synthetic scanned simple Arabic invoice table (rendered as a raster grid, not a real table object)",
+    "expected_file": "scanned_arabic_table.expected.txt"
+  },
+  "scanned_arabic_low_quality.pdf": {
+    "description": "Same clear-text content, downscaled 3x and Gaussian-blurred to simulate a low-quality scan",
+    "expected_file": "scanned_arabic_low_quality.expected.txt",
+    "note": "expected_file intentionally reused from scanned_arabic_clear content, NOT the numeric one"
+  },
+  "scanned_arabic_indic_digits.pdf": {
+    "description": "Synthetic scanned Arabic using Arabic-Indic digit glyphs (٠-٩), not Western 0-9",
+    "expected_file": "scanned_arabic_indic_digits.expected.txt"
+  },
+  "scanned_arabic_rotated.pdf": {
+    "description": "Same clear-text content rotated 7 degrees to simulate a crooked scan",
+    "expected_file": "scanned_arabic_rotated.expected.txt",
+    "note": "expected_file intentionally reused from scanned_arabic_clear content"
+  },
+  "scanned_blank_page.pdf": {
+    "description": "Fully blank synthetic page; expected output is empty text",
+    "expected_file": "scanned_blank_page.expected.txt"
+  },
+  "scanned_arabic_noisy.pdf": {
+    "description": "Same clear-text content with ~4% random salt-and-pepper pixel noise",
+    "expected_file": "scanned_arabic_noisy.expected.txt",
+    "note": "expected_file intentionally reused from scanned_arabic_clear content"
+  },
+  "scanned_arabic_multi_block.pdf": {
+    "description": "Three distinct Arabic text blocks at top/middle/bottom of the page, in top-to-bottom reading order",
+    "expected_file": "scanned_arabic_multi_block.expected.txt"
+  }
+}

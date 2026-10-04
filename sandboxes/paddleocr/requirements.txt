@@ -1,0 +1,23 @@
+# PaddleOCR sandbox pinned dependencies.
+#
+# CRITICAL: paddleocr/paddlepaddle versions are pinned exactly. See
+# adapter.py's "Version pinning" docstring section for the specific crashes
+# (NotImplementedError, native access violation, AttributeError) that other
+# combinations produced on this Windows machine during capability discovery.
+paddleocr==3.3.3
+paddlepaddle==3.2.2
+
+# Fixture generation (engine-neutral, shared methodology with the Docling
+# sandbox's generate_scanned_corpus.py).
+pillow
+reportlab
+arabic-reshaper
+python-bidi
+
+# Used only for the shared pypdf-based born/scanned/ambiguous pre-check
+# (informational for this adapter; see adapter.py docstring).
+pypdf
+
+# Test/benchmark utilities.
+pytest
+psutil
