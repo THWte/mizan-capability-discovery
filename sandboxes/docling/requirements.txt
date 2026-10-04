@@ -1,0 +1,12 @@
+# Requirements for the Docling sandbox prototype.
+# Install into an isolated virtual environment only — never into MIZAN's main
+# environment. This sandbox is intentionally decoupled from MIZAN's dependencies.
+
+docling>=2.133.0,<3
+reportlab>=5.0.1,<6
+python-docx>=1.2.0,<2
+openpyxl>=3.1.5,<4
+python-pptx>=1.0.2,<2
+arabic-reshaper>=3.0.1,<4
+python-bidi>=0.6.11,<1
+pytest>=9.1.1,<10

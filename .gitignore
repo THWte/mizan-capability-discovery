@@ -1,0 +1,5 @@
+# Sandbox virtual environments must never be committed.
+sandboxes/**/.venv/
+sandboxes/**/__pycache__/
+sandboxes/**/.pytest_cache/
+*.pyc
