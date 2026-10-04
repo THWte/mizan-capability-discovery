@@ -1,7 +1,15 @@
-# Provenance Contract v1 (Placeholder)
+# Provenance Contract v1
 
-**Status:** Skeleton — not yet specified. No implementation depends on this
-yet.
+**Status:** Reference implementation exists at
+[`contracts/mizan_contracts/provenance_v1.py`](../mizan_contracts/provenance_v1.py),
+exercised by [`tests/contracts/`](../../tests/contracts/) (AC-04, AC-11,
+AC-12, AC-13, AC-14, AC-15, AC-16). This document remains the
+human-readable specification; the Python module is the normative,
+versioned, importable contract. Structural reverse traceability
+(Observation → Span → Block → Page → Source Artifact → SHA-256) is
+implemented and tested; the full Accepted-Fact trace is explicitly NOT
+implemented (no interpretation/verification layer exists yet) — see
+`tests/architecture/test_provenance_traceability.py` for the honest SKIP.
 
 ## Purpose
 
@@ -24,10 +32,17 @@ recorded and carried through MIZAN's pipeline, implementing:
   sandbox's `raw_text` / `normalized_text` precedent in
   `sandboxes/docling/adapter.py`) are to be generalized across engines.
 
-## Status of this placeholder
+## Status of this document
 
-This file exists only to reserve the directory and document intent, per the
-IMPLEMENTATION DIRECTIVE that created it. It is **not** a working schema.
-No code should depend on a schema defined here until a follow-up change
-replaces this placeholder with an actual specification and a corresponding
-ADR.
+`contracts/mizan_contracts/provenance_v1.py` now implements
+`ProvenanceRecord` (engine, engine_version, settings, extraction_timestamp,
+extraction_method, source_sha256, stable_locator, and optional
+model/confidence/page/bbox fields), `SourceArtifactRecord`, and
+`trace_to_source_sha256()` as real, importable, versioned
+(`CONTRACT_VERSION = "v1"`) code with enforced validation — not a JSON
+Schema/protobuf file. It accepts no retrieval_score/similarity/rank field
+(Invariant 4, see `tests/contracts/test_ac13_*.py`). See
+[`tests/contracts/`](../../tests/contracts/) for the acceptance-criteria
+test suite that exercises every rule above, and
+[`docs/architecture/adr/`](../../docs/architecture/adr/) for the
+corresponding ADR once filed.
