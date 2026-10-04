@@ -33,7 +33,8 @@ See the root-level evaluation already on file before reading further:
 
 | Path | Purpose |
 |---|---|
-| `adapter.py` | `DoclingAdapter` — the only code that imports `docling` directly. Performs real OCR routing (born-digital/scanned/ambiguous) and NFKC normalization internally; everything else should depend on `NormalizedDocumentResult`, not on Docling. |
+| `adapter.py` | `DoclingAdapter` — the only code that imports `docling` directly. Performs real OCR routing (born-digital/scanned/ambiguous) and NFKC normalization internally; computes the source file's SHA-256 before conversion; everything else should depend on `NormalizedDocumentResult`, not on Docling. |
+| `mizan_bridge.py` | Translates one `NormalizedDocumentResult` into MIZAN's real, merged Core Contracts (`contracts/mizan_contracts/`: canonical/provenance/identity/stable-locator v1). The only module that imports both `adapter` and `mizan_contracts`; MIZAN components should depend on its output types, never on Docling-shaped types directly. |
 | `requirements.txt` | Pinned sandbox dependencies |
 | `fixtures/generate_fixtures.py` | Generates born-digital synthetic fixtures (PDF, DOCX, XLSX, PPTX, Arabic, mixed-language, corrupted, unsupported) |
 | `fixtures/generate_scanned_corpus.py` | Generates 5 fully-raster (zero text layer) synthetic scanned Arabic PDFs + ground-truth `.expected.txt` files, for real OCR testing |
@@ -43,6 +44,7 @@ See the root-level evaluation already on file before reading further:
 | `tests/test_scanned_ocr_quality.py` | Runs OCR on the scanned Arabic corpus and computes/records CER/WER against ground truth (not just `success=True`) |
 | `tests/test_windows_stability.py` | Repeated/sequential/bounded-concurrent run probes for the Windows access-violation investigation |
 | `tests/test_offline_local_first.py` | Verifies conversions (including OCR) succeed in a subprocess with network/hub access explicitly disabled, once models are cached |
+| `tests/test_mizan_contract_bridge.py` | Adversarial contract-integration tests for `mizan_bridge.py` against the real, merged Core Contracts: SHA-256 validity, locator ownership, raw/normalized-text integrity, broken provenance/identity references, Observation→AcceptedFact promotion impossibility. Runs without Docling installed (no import-time dependency). |
 | `benchmark/ocr_metrics.py` | Dependency-free Levenshtein-based CER/WER implementation |
 | `benchmark/benchmark_cold_warm.py` | Standalone script separating cold-start (adapter construction) from warm processing (repeated conversions) timing |
 | `benchmark/RESULTS.md` | Actual measured results: format support, Arabic/NFKC finding, OCR routing, the Arabic-OCR-language critical finding, CER/WER, cold/warm benchmarks, Windows stability investigation, offline verification |

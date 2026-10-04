@@ -42,6 +42,7 @@ The routing decision is recorded in the result's `ocr_mode`, `ocr_reason`, and
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import pathlib
 import time
 import traceback
@@ -66,14 +67,27 @@ class SectionResult:
     """A heading/paragraph unit, preserving document order. Raw extraction only."""
     level: int  # 0 = body paragraph, 1+ = heading level
     text: str
+    page_number: Optional[int] = None
+    """1-based page number this section was found on, when Docling's item
+    provenance exposes it (`item.prov[0].page_no`). None when the source
+    format has no page concept (e.g. DOCX) or Docling did not attach
+    per-item provenance -- callers must not assume page 1 in that case."""
 
 
 @dataclasses.dataclass
 class Provenance:
-    """Enough information to trace extracted content back to its source file."""
+    """Enough information to trace extracted content back to its source file.
+
+    `source_sha256` is NOT optional: MIZAN's Provenance Contract (GATE 2 /
+    AC-04) treats the absence of a SHA-256 for a used Source Artifact as a
+    hard FAIL, not a gap to fill in later. This adapter computes it directly
+    from the file's bytes before any Docling conversion runs, so it is
+    available even if the conversion itself subsequently fails.
+    """
     source_path: str
     source_file_name: str
     source_size_bytes: int
+    source_sha256: str
     engine: str
     engine_version: str
 
@@ -124,6 +138,16 @@ class DoclingAdapterError(Exception):
     """Raised only for adapter-level failures that are not simple per-file errors."""
 
 
+def sha256_of_file(path: pathlib.Path) -> str:
+    """Compute the SHA-256 hex digest of a file's bytes, streamed in chunks
+    so large documents don't need to be fully loaded into memory at once."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def normalize_text(raw_text: str) -> str:
     """Apply the MIZAN-mandated NFKC normalization step. See
     benchmark/RESULTS.md for the measured defect this corrects: Docling's PDF
@@ -171,6 +195,23 @@ def _classify_pdf_for_ocr(path: pathlib.Path) -> tuple[str, str]:
             "unknown",
             f"OCR routing pre-check failed ({type(exc).__name__}: {exc}); defaulting to OCR ON.",
         )
+
+
+def _extract_item_page_number(item: object) -> Optional[int]:
+    """Best-effort extraction of the 1-based page number Docling attached to
+    one document item, via its `.prov` (provenance) list. Returns None
+    (never a guessed default like 1) when Docling did not attach page
+    provenance for this item -- callers must treat that as "page unknown",
+    not "page 1" (preserving structural honesty over GATE 1 compliance)."""
+    prov = getattr(item, "prov", None)
+    if not prov:
+        return None
+    try:
+        first = prov[0]
+    except (IndexError, TypeError):
+        return None
+    page_no = getattr(first, "page_no", None)
+    return int(page_no) if isinstance(page_no, int) else None
 
 
 class DoclingAdapter:
@@ -230,10 +271,15 @@ class DoclingAdapter:
         errors: list[str] = []
 
         file_size = path.stat().st_size if path.exists() else 0
+        # Computed BEFORE conversion so it is available even if the Docling
+        # conversion itself fails below (GATE 2: SHA-256 must exist for every
+        # Source Artifact used in extraction, not only for successful ones).
+        file_sha256 = sha256_of_file(path) if path.exists() else ""
         provenance = Provenance(
             source_path=str(path),
             source_file_name=path.name,
             source_size_bytes=file_size,
+            source_sha256=file_sha256,
             engine="docling",
             engine_version=self._engine_version,
         )
@@ -281,7 +327,8 @@ class DoclingAdapter:
                     continue
                 label_name = getattr(label, "value", str(label)) if label else "text"
                 heading_level = 1 if ("section_header" in label_name or "title" in label_name) else 0
-                sections.append(SectionResult(level=heading_level, text=text))
+                page_number = _extract_item_page_number(item)
+                sections.append(SectionResult(level=heading_level, text=text, page_number=page_number))
 
             tables: list[TableResult] = []
             for table_item in getattr(doc, "tables", []):

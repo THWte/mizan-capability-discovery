@@ -239,6 +239,20 @@ assertions did not fail:
   sandbox's bounded, short-duration probes are not a substitute for that kind
   of soak testing.
 
+**Third and fourth re-tests (Revision 3, Core Contract Gate session)**: the
+full suite was re-run twice more on this Windows machine (once as part of a
+full `tests/` run, once as a dedicated standalone `test_windows_stability.py`
+run with captured output explicitly grepped for the fault string). The
+fault did **not** appear in either run's captured stdout/stderr this time.
+This is recorded honestly as a non-occurrence, not as resolution: the fault
+has so far been observed opportunistically (2 of ~4 observed full-suite
+runs to date) and, per the teardown-timing evidence above, may not always
+be visible in captured output even when it occurs. Two additional
+non-reproducing runs out of a small total sample is not statistically
+sufficient to downgrade `UNRESOLVED`, and the classification is
+**intentionally left unchanged**: `UNRESOLVED` (not promoted to PASS/Low
+without stronger evidence, per explicit instruction).
+
 **Risk attribution: Docling's `docling_parse` native backend (best available
 evidence) — NOT confirmed to be RapidOCR or PyTorch.** This is the single
 largest unresolved operational risk identified in this entire sandbox and
@@ -294,3 +308,29 @@ distinct from §8's native-level investigation)
 - Re-running the same PDF repeatedly in the same process produces
   **byte-identical** `raw_text` and `normalized_text` output and the same
   table count, for both born-digital and OCR paths tested.
+
+## 11. MIZAN Core Contract Gate (`mizan_bridge.py`, Revision 3)
+
+After PR #4 merged real Core Contracts (`contracts/mizan_contracts/`) into
+`main`, this sandbox was re-gated against them (not placeholders) via a new
+`mizan_bridge.py` integration module. Full AC-D01..AC-D12 results and
+reasoning are in `COMPARISON_AND_DECISION.md` §"MIZAN Core Contract Gate" to
+avoid duplicating the same table in two places. Summary:
+
+- 12/12 AC-D criteria: **PASS**.
+- 19/19 new adversarial contract-bridge tests pass
+  (`tests/test_mizan_contract_bridge.py`) — these require no Docling/ML
+  runtime to execute, since they exercise the contract-translation layer
+  directly against synthetic `NormalizedDocumentResult` instances.
+- Combined sandbox suite this session: **68 passed, 1 failed** (the
+  pre-existing `scanned_arabic_table` WER=1.524 quality blocker, unchanged),
+  **0 errors, 0 skipped**.
+- `adapter.py`'s `Provenance` dataclass gained a mandatory `source_sha256`
+  field (computed via SHA-256 streaming hash of the file's bytes, before
+  Docling conversion runs) — this closes the previously-open "Provenance
+  Contract" blocker: every Source Artifact used in extraction now has a
+  SHA-256 available even if the subsequent Docling conversion itself fails.
+- Contract-layer success does **not** change the Arabic-OCR-quality or
+  Windows-stability blockers above — see "Sandbox Capability Candidate vs.
+  Approved MIZAN Production Capability" in `COMPARISON_AND_DECISION.md`.
+

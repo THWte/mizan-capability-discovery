@@ -1,12 +1,15 @@
-# Docling vs. MIZAN Needs — Comparison and Final Decision (Revision 2)
+# Docling vs. MIZAN Needs — Comparison and Final Decision (Revision 3)
 
 This document compares Docling's *measured* (not assumed) behavior against
 MIZAN's requirements, based on the sandbox prototype in this folder and the
-results in `benchmark/RESULTS.md`. This revision corrects a false claim from
-Revision 1 and incorporates new evidence: real OCR routing, a synthetic
-scanned Arabic corpus with measured CER/WER, a Windows stability
-investigation, separated cold/warm benchmarks, and an offline/local-first
-verification.
+results in `benchmark/RESULTS.md`. Revision 2 corrected a false claim from
+Revision 1 and incorporated real OCR routing, a synthetic scanned Arabic
+corpus with measured CER/WER, a Windows stability investigation, separated
+cold/warm benchmarks, and an offline/local-first verification. **Revision 3**
+adds the Core Contract Gate: this sandbox is now re-evaluated against the
+real, merged `contracts/mizan_contracts/` (Canonical/Provenance/Identity/
+Stable-Locator v1) via a new `mizan_bridge.py` integration layer, not against
+placeholders (see "MIZAN Core Contract Gate" section below).
 
 ## MIZAN's evidence pipeline — and where this sandbox sits in it
 
@@ -141,6 +144,76 @@ unknown overlap, not zero overlap.
   an unmaintained native binary with an open stability question — this is a
   stronger argument for keeping the adapter boundary strict than in Revision
   1's assessment.
+
+## MIZAN Core Contract Gate (post PR #4 merge, Revision 3)
+
+PR #4 (`architecture/contracts-v1`) merged real, versioned Core Contracts
+(`contracts/mizan_contracts/`: canonical_v1, provenance_v1, identity_v1,
+stable_locator_v1) into `main`. This sandbox was re-gated against those real
+contracts — not placeholders — via a new integration module,
+`sandboxes/docling/mizan_bridge.py`, which is the only place
+`NormalizedDocumentResult` (Docling-shaped) is translated into MIZAN-owned
+contract objects:
+
+```
+MIZAN CONTRACT
+        ^
+     ADAPTER  (adapter.py + mizan_bridge.py)
+        ^
+     DOCLING
+```
+
+| Criterion | Result | Evidence |
+|---|---|---|
+| AC-D01 Core Contracts loaded from main | PASS | `mizan_bridge.py` imports `contracts/mizan_contracts` directly; `.venv` has no copy, only the real `main` package |
+| AC-D02 Adapter respects Canonical v1 | PASS | `bridge_to_mizan()` constructs real `canonical_v1.Section/Table/TableCell/RawObservation/Block/Page/Document/DocumentVersion` instances; mapping validated by `test_mizan_contract_bridge.py` |
+| AC-D03 SHA-256 provenance complete | PASS | `adapter.Provenance` now has a mandatory `source_sha256` field computed from file bytes before conversion (`adapter.sha256_of_file`); bridge validates it via `identity_v1.validate_sha256` before use; absence/invalidity is rejected (`test_missing_or_invalid_sha256_is_rejected`) |
+| AC-D04 Identity owned by MIZAN | PASS | `document_id`/`source_artifact_id` are MIZAN-minted (`uuid4`-based), never derived from Docling; `test_two_artifacts_can_point_to_same_document_without_merging` and `test_same_normalized_content_different_bytes_is_duplicate_candidate_only` prove no auto-merge |
+| AC-D05 Stable Locator owned by MIZAN | PASS | `LocatorAllocator` issues locators from its own counters only; every locator is additionally validated via `stable_locator_v1.validate_locator_component` before use; `test_engine_native_id_used_as_locator_is_rejected_by_bridge_guard` proves a poisoned/engine-shaped locator is rejected rather than accepted |
+| AC-D06 raw_text preserved | PASS | `Section.raw_text`/`RawObservation.raw_text`/`TableCell.raw_text` always hold the exact pre-NFKC text; `test_raw_text_is_preserved_separately_from_normalized_text` |
+| AC-D07 normalized_text NFKC enforced | PASS | Enforced at the canonical contract layer itself (`_require_text_pair`), not just by convention; `test_normalized_text_overwriting_raw_text_is_rejected` |
+| AC-D08 structural Observation→SHA256 trace works | PASS | `mizan_bridge.trace_observation_to_sha256()`; `test_reverse_traceability_structural_chain_succeeds`. Explicitly NOT an "Accepted Fact -> SHA-256" claim — verification layer does not exist |
+| AC-D09 OCR routing regression-free | PASS | `tests/test_ocr_routing.py` re-run unchanged: born-digital->OFF, scanned->ON, ambiguous->fallback+warning, all still pass |
+| AC-D10 engine dependency boundary clean | PASS | `mizan_bridge.py` imports FROM `mizan_contracts`, never the reverse; `contracts/mizan_contracts/` still has zero Docling/engine imports (AC-02, re-verified on `main`) |
+| AC-D11 no Observation→AcceptedFact promotion | PASS | `test_bridge_output_has_no_fact_or_accepted_fact_promotion_path`: no `to_fact`/`status`/`verified`/`accepted` attribute exists anywhere on the bridged output |
+| AC-D12 adversarial tests pass | PASS | 19/19 in `test_mizan_contract_bridge.py` — missing/invalid SHA-256 (5 shapes), failed-extraction rejection, poisoned-locator rejection, malformed-locator rejection, broken source-artifact reference, missing engine_version, span-under-wrong-block trace break, raw/normalized mismatch rejection |
+
+**Full sandbox test suite (this session, after the above changes):** 68 passed
+(49 pre-existing + 19 new adversarial bridge tests), 1 failed, 0 errors, 0
+skipped.
+
+- The 1 failure is the pre-existing, previously-measured
+  `test_scanned_case_cer_wer_within_sanity_ceiling[scanned_arabic_table]`
+  (WER=1.524, unchanged from the prior revision's measurement — not
+  re-tuned, not hidden, carried forward as a **QUALITY BLOCKER**).
+- Windows stability tests were re-run twice more on Windows this session; the
+  native `Windows fatal exception: access violation` signal did not appear in
+  either additional run's captured output. This is **not** treated as
+  resolution: the original occurrence was observed only once, after pytest's
+  own reporting had already completed (consistent with an intermittent
+  teardown-time fault, not a per-conversion one), so a handful of
+  non-reproductions is not statistically sufficient evidence of absence.
+  **Classification remains `UNRESOLVED`.**
+
+### Sandbox Capability Candidate vs. Approved MIZAN Production Capability
+
+These are explicitly **not the same statement**:
+
+- **Sandbox Capability Candidate: PASS.** The contract-integration layer
+  (Canonical/Provenance/Identity/Stable-Locator) is now real, tested, and
+  adversarially validated against the actual merged Core Contracts, for the
+  **born-digital** path across all 5 tested formats.
+- **Approved MIZAN Production Capability: NO.** Two unresolved blockers
+  independently prevent production approval regardless of contract-layer
+  success:
+  1. Arabic scanned-document OCR quality remains **below threshold**
+     (WER up to 1.524, measured, not improved this round).
+  2. Windows native stability remains **UNRESOLVED** (not ruled out under
+     production-like load).
+
+Either blocker alone is sufficient to withhold production approval; both
+being present is not treated as "worse", only as two independent reasons the
+same final answer (NO) holds.
 
 ## Final decision
 
