@@ -1,7 +1,11 @@
-# Identity Contract v1 (Placeholder)
+# Identity Contract v1
 
-**Status:** Skeleton — not yet specified. No implementation depends on this
-yet.
+**Status:** Reference implementation exists at
+[`contracts/mizan_contracts/identity_v1.py`](../mizan_contracts/identity_v1.py),
+exercised by [`tests/contracts/`](../../tests/contracts/) (AC-04, AC-05,
+AC-06, AC-15, AC-16). This document remains the human-readable
+specification; the Python module is the normative, versioned, importable
+contract.
 
 ## Purpose
 
@@ -23,10 +27,16 @@ implementing:
   `stable-locator-contract-v1/` (identity is the "what"; stable locators are
   the durable "how to point at it").
 
-## Status of this placeholder
+## Status of this document
 
-This file exists only to reserve the directory and document intent, per the
-IMPLEMENTATION DIRECTIVE that created it. It is **not** a working schema.
-No code should depend on a schema defined here until a follow-up change
-replaces this placeholder with an actual specification and a corresponding
-ADR.
+`contracts/mizan_contracts/identity_v1.py` now implements
+`SourceArtifactIdentity` (sha256/content_fingerprint/byte_size-based file
+identity), `DocumentIdentity` (`document_id` distinct from any
+`source_artifact_ids`, enforced in `__post_init__`), and
+`classify_duplicate_candidate()` (classifies, never auto-merges — see
+Invariant 5) as real, importable, versioned (`CONTRACT_VERSION = "v1"`)
+code with enforced validation, not a JSON Schema/protobuf file. See
+[`tests/contracts/`](../../tests/contracts/) for the acceptance-criteria
+test suite that exercises every rule above, and
+[`docs/architecture/adr/`](../../docs/architecture/adr/) for the
+corresponding ADR once filed.
