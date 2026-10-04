@@ -10,3 +10,6 @@ python-pptx>=1.0.2,<2
 arabic-reshaper>=3.0.1,<4
 python-bidi>=0.6.11,<1
 pytest>=9.1.1,<10
+pypdf>=5.0.0,<6
+onnxruntime>=1.20.0,<2
+psutil>=6.0.0,<7
