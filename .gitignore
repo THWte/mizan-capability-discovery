@@ -1,5 +1,7 @@
-# Sandbox virtual environments must never be committed.
+﻿# Root-level and sandbox ignores for the capability-discovery repository.
 sandboxes/**/.venv/
 sandboxes/**/__pycache__/
 sandboxes/**/.pytest_cache/
+__pycache__/
 *.pyc
+.pytest_cache/

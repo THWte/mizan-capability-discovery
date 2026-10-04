@@ -11,11 +11,29 @@ evaluated for the specific gap it fills in MIZAN's architecture (document
 intelligence, knowledge graph, retrieval, agent runtime, observability, legal/Arabic
 domain fit), then given one decision: **REUSE / EXTEND / CONNECT / INSPIRE / REJECT**.
 
+## Architecture invariants (normative)
+
+Before any capability evaluation result is treated as final, it must comply
+with MIZAN's fixed architectural invariants — see
+[`docs/architecture/ARCHITECTURAL_INVARIANTS.md`](docs/architecture/ARCHITECTURAL_INVARIANTS.md)
+and the decision record in
+[`docs/architecture/adr/ADR-0001-architectural-invariants.md`](docs/architecture/adr/ADR-0001-architectural-invariants.md).
+These invariants (e.g. "MIZAN owns identity and stable locators",
+"Observation ≠ Evidence ≠ Fact ≠ Accepted Fact") are constraints every
+engine integration must satisfy, not suggestions. Versioned contracts that
+implement these invariants concretely live in [`contracts/`](contracts/)
+(currently skeletons); architecture-level validation test placeholders live
+in [`tests/architecture/`](tests/architecture/).
+
 ## Structure
 
 | Path | Purpose |
 |---|---|
 | [`docs/capability-census-issue.md`](docs/capability-census-issue.md) | The formal initiative write-up (goal, scope, decision model, acceptance criteria) |
+| [`docs/architecture/ARCHITECTURAL_INVARIANTS.md`](docs/architecture/ARCHITECTURAL_INVARIANTS.md) | Normative architectural constraints every engine integration must satisfy |
+| [`docs/architecture/adr/`](docs/architecture/adr/) | Architecture Decision Records |
+| [`contracts/`](contracts/) | Versioned contract specifications (canonical, provenance, identity, stable-locator) implementing the invariants |
+| [`tests/architecture/`](tests/architecture/) | Architecture-level validation test placeholders |
 | [`templates/evaluation-template.md`](templates/evaluation-template.md) | Standard per-project evaluation template |
 | [`evaluations/`](evaluations/) | Completed evaluations for each candidate project |
 | [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) | MIZAN Compatibility Score matrix (scored 1–10 across 12 dimensions) |
