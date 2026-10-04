@@ -1,0 +1,6 @@
+# Root-level ignores for the capability-discovery repository.
+# Sandbox-specific ignores exist on sandbox branches; this covers the new
+# top-level tests/architecture/ placeholder suite added in this change.
+__pycache__/
+*.pyc
+.pytest_cache/
