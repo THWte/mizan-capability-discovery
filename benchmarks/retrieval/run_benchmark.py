@@ -103,8 +103,9 @@ def wait_qdrant():
     last = None
     for _ in range(60):
         try:
-            qrequest("GET", "/readyz")
-            return
+            with urllib.request.urlopen(QDRANT_URL + "/readyz", timeout=5) as resp:
+                if 200 <= resp.status < 300:
+                    return
         except Exception as e:
             last = e
             time.sleep(1)
