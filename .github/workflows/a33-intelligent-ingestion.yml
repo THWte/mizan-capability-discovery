@@ -1,0 +1,39 @@
+name: A33 Intelligent Document Ingestion
+on:
+  pull_request:
+    paths:
+      - 'agents/mizan_agents/intelligent_document_ingestion.py'
+      - 'tests/long_documents/test_a33_intelligent_ingestion.py'
+      - 'benchmarks/long_documents/run_a33.py'
+      - 'docs/architecture/A33_INTELLIGENT_DOCUMENT_INGESTION.md'
+      - '.github/workflows/a33-intelligent-ingestion.yml'
+  workflow_dispatch:
+jobs:
+  windows-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest pymupdf
+      - name: A33 unit and traceability tests
+        env:
+          PYTHONPATH: agents
+        run: python -m pytest tests/long_documents/test_a33_intelligent_ingestion.py tests/long_documents/test_long_document_stack.py -q
+      - name: A33 24-page judgment-like PDF end-to-end
+        env:
+          PYTHONPATH: agents
+        run: python benchmarks/long_documents/run_a33.py
+      - name: Architecture and contracts regression
+        env:
+          PYTHONPATH: agents;contracts
+        run: python -m pytest tests/architecture tests/contracts -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a33-intelligent-ingestion-results
+          path: benchmarks/long_documents/results/a33-results.json
