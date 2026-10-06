@@ -1,0 +1,31 @@
+name: A14-A17 Runtime Production Gates
+on:
+  pull_request:
+    paths:
+      - "agents/mizan_agents/intelligence_runtime.py"
+      - "agents/mizan_agents/golden_dataset.py"
+      - "agents/mizan_agents/production_readiness.py"
+      - "agents/mizan_agents/capability_registry.py"
+      - "tests/production/**"
+      - "docs/architecture/RUNTIME_PRODUCTION_GATES_V1.md"
+      - ".github/workflows/a14-a17-runtime-production.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install pytest
+      - name: Production governance adversarial tests
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/production -q
+      - name: Integrated layer regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/knowledge tests/retrieval tests/agents/test_canonical_document_flow.py tests/agents/test_citation_engine.py tests/agents/test_evidence_resolution.py -q
+      - name: Architecture regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/architecture -q
