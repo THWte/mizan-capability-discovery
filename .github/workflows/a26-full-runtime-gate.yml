@@ -1,0 +1,28 @@
+name: A26 Full Local Runtime Gate
+on:
+  pull_request:
+    paths:
+      - "agents/mizan_agents/runtime_discovery.py"
+      - "scripts/dev/run-full-runtime-gate.ps1"
+      - "tests/internal_rc/test_runtime_discovery.py"
+      - ".github/workflows/a26-full-runtime-gate.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install pytest
+      - name: Runtime discovery adversarial tests
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/internal_rc/test_runtime_discovery.py tests/internal_rc/test_internal_rc_runtime_evidence.py -q
+      - name: Release regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/release tests/production -q
+      - name: Architecture regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/architecture -q
