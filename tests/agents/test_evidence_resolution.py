@@ -1,8 +1,8 @@
 import dataclasses
 import pytest
 
-from contracts.mizan_contracts.canonical_v1 import RawObservation, normalize_text
-from agents.mizan_agents.evidence_resolution import (
+from mizan_contracts.canonical_v1 import RawObservation, normalize_text
+from mizan_agents.evidence_resolution import (
     EvidenceResolutionError, EvidenceState, resolve_observations, unresolved, reject
 )
 
