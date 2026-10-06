@@ -7,7 +7,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 
-from mizan_contracts.canonical_v1 import Block, DocumentVersion, Page, RawObservation, Span
+from mizan_contracts.canonical_v1 import Block, DocumentVersion, Page, RawObservation, Span, normalize_text
 from mizan_contracts.identity_v1 import DocumentIdentity, SourceArtifactIdentity
 from mizan_contracts.provenance_v1 import ProvenanceRecord, SourceArtifactRecord, trace_to_source_sha256
 from mizan_contracts.stable_locator_v1 import validate_hierarchy_consistency
