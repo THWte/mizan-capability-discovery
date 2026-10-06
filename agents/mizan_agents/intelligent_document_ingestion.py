@@ -101,8 +101,34 @@ _CIRCUIT_RE=re.compile(r"((?:الدائرة)\s+[\u0600-\u06FF\s0-9٠-٩]{2,60})"
 def _candidate(kind, value, page_number, span_id, confidence):
     return ExtractedCandidate(kind=kind,value=value.strip(),page_number=page_number,span_id=span_id,confidence=confidence)
 
-def extract_legal_candidates(page_number:int, spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
+_CURRENCY_RE=re.compile(r"(?:ريال|ر\s*\.\s*س)")
+_AMOUNT_TOKEN_RE=re.compile(r"(?<![0-9٠-٩])([0-9٠-٩][0-9٠-٩,٬]*(?:[.٫][0-9٠-٩]{1,2})?)(?![0-9٠-٩])")
+
+def _resolve_page_amounts(page_number:int,spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
+    """Resolve amounts across span/line boundaries without accepting bare numbers."""
+    if not spans: return ()
+    page_text="\n".join(s.text for s in spans)
     out=[]
+    seen=set()
+    for cur in _CURRENCY_RE.finditer(page_text):
+        left=page_text[max(0,cur.start()-64):cur.start()]
+        nums=list(_AMOUNT_TOKEN_RE.finditer(left))
+        if not nums: continue
+        m=nums[-1]
+        value=m.group(1)
+        # Reject date-like or identifier-like tokens; currency proximity alone
+        # must not turn a case/judgment number into an amount.
+        if "-" in value or "/" in value or len(re.sub(r"\D","",value))>12: continue
+        absolute=max(0,cur.start()-64)+m.start(1)
+        owner=next((s for s in spans if s.start_offset<=absolute<s.end_offset),spans[0])
+        key=(value,owner.span_id)
+        if key not in seen:
+            out.append(_candidate(ExtractionKind.AMOUNT,value,page_number,owner.span_id,.88))
+            seen.add(key)
+    return tuple(out)
+
+def extract_legal_candidates(page_number:int, spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
+    out=list(_resolve_page_amounts(page_number,spans))
     for s in spans:
         txt=s.text
         case_hits=list(_CASE_RE.finditer(txt))
