@@ -1,7 +1,7 @@
 from pathlib import Path
 import fitz
 from mizan_agents.intelligent_document_ingestion import *
-from mizan_agents.intelligent_document_ingestion import _label_present
+from mizan_agents.intelligent_document_ingestion import _label_present, _resolve_page_amounts
 
 def make_pdf(path:Path):
     # Create a PDF from HTML through Chromium in the workflow before this test
@@ -23,3 +23,14 @@ def test_a33_candidates_never_self_verify():
 
 def test_a33_label_helpers_do_not_invent_from_bare_number():
     assert not _label_present("4870236421",ExtractionKind.CASE_NUMBER)
+
+
+def test_amount_resolver_requires_currency_and_handles_arabic_digits_across_lines():
+    from mizan_agents.legal_segmentation import segment_page
+    spans=segment_page(1,"المبلغ ١٢٬٥٠٠٫٧٥\nريال")
+    got=_resolve_page_amounts(1,spans)
+    assert len(got)==1
+    assert got[0].value=="١٢٬٥٠٠٫٧٥"
+    assert got[0].verified is False
+    bare=segment_page(1,"رقم القضية 4870236421")
+    assert _resolve_page_amounts(1,bare)==()
