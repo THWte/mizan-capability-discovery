@@ -81,3 +81,9 @@ def test_forbidden_truth_states_do_not_exist():
     assert "FACT" not in names
     assert "VERIFIED_FACT" not in names
     assert "ACCEPTED_FACT" not in names
+
+
+def test_same_engine_repetition_is_not_corroboration():
+    r = resolve_observations([("o1", obs("نص", "docling")), ("o2", obs("نص", "docling"))])
+    assert r.state is EvidenceState.OBSERVED
+    assert "REPEATED_SAME_PRODUCER_NOT_CORROBORATION" in r.reason_codes
