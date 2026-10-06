@@ -91,6 +91,10 @@ def _label_present(text:str,kind:ExtractionKind)->bool:
     return any(_arabic_letters(label) in letters for label in _ARABIC_LABELS[kind])
 _DATE_RE=re.compile(r"(?<!\d)(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})(?!\d)")
 _AMOUNT_RE=re.compile(r"(?<!\d)(\d[\d,]*(?:\.\d{1,2})?)\s*(?:ريال|ر\.س)")
+_MACHINE_CASE_RE=re.compile(r"CASE_NUMBER\s*[:=-]?\s*([0-9]{6,14})",re.I)
+_MACHINE_JUDGMENT_RE=re.compile(r"JUDGMENT_NUMBER\s*[:=-]?\s*([0-9]{5,14})",re.I)
+_MACHINE_DATE_RE=re.compile(r"DATE\s*[:=-]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})",re.I)
+_MACHINE_AMOUNT_RE=re.compile(r"AMOUNT\s*[:=-]?\s*(\d[\d,.]*)",re.I)
 _COURT_RE=re.compile(r"((?:المحكمة|محكمة)\s+[\u0600-\u06FF\s]{3,80})")
 _CIRCUIT_RE=re.compile(r"((?:الدائرة)\s+[\u0600-\u06FF\s0-9٠-٩]{2,60})")
 
@@ -103,6 +107,10 @@ def extract_legal_candidates(page_number:int, spans:tuple[LegalSpan,...])->tuple
         txt=s.text
         case_hits=list(_CASE_RE.finditer(txt))
         judgment_hits=list(_JUDGMENT_RE.finditer(txt))
+        for m in _MACHINE_CASE_RE.finditer(txt): out.append(_candidate(ExtractionKind.CASE_NUMBER,m.group(1),page_number,s.span_id,.95))
+        for m in _MACHINE_JUDGMENT_RE.finditer(txt): out.append(_candidate(ExtractionKind.JUDGMENT_NUMBER,m.group(1),page_number,s.span_id,.92))
+        for m in _MACHINE_DATE_RE.finditer(txt): out.append(_candidate(ExtractionKind.DATE,m.group(1),page_number,s.span_id,.90))
+        for m in _MACHINE_AMOUNT_RE.finditer(txt): out.append(_candidate(ExtractionKind.AMOUNT,m.group(1),page_number,s.span_id,.90))
         for m in case_hits: out.append(_candidate(ExtractionKind.CASE_NUMBER,m.group(1),page_number,s.span_id,.95))
         for m in judgment_hits: out.append(_candidate(ExtractionKind.JUDGMENT_NUMBER,m.group(1),page_number,s.span_id,.92))
         # Fallback for PDF extractors that disturb Arabic spacing/direction:
