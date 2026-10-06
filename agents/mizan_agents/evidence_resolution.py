@@ -98,12 +98,21 @@ def resolve_observations(
         )
 
     values = {r.normalized_text for r in refs}
-    if len(values) == 1:
+    producers = {r.produced_by for r in refs}
+    if len(values) == 1 and len(producers) >= 2:
         return EvidenceResolutionRecord(
             resolution_id=rid,
             state=EvidenceState.CORROBORATED,
             observations=refs,
-            reason_codes=("MULTIPLE_OBSERVATIONS_SAME_NORMALIZED_TEXT",),
+            reason_codes=("INDEPENDENT_PRODUCERS_SAME_NORMALIZED_TEXT",),
+            requires_human_review=False,
+        )
+    if len(values) == 1:
+        return EvidenceResolutionRecord(
+            resolution_id=rid,
+            state=EvidenceState.OBSERVED,
+            observations=refs,
+            reason_codes=("REPEATED_SAME_PRODUCER_NOT_CORROBORATION",),
             requires_human_review=False,
         )
 
