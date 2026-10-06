@@ -1,33 +1,40 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import json, tempfile, time
-import fitz
-from mizan_agents.intelligent_document_ingestion import ingest_pdf,ExtractionKind
+import json,tempfile,time
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from mizan_agents.intelligent_document_ingestion import ingest_pdf
 
 PAGES=24
 
 def build(path):
     fontfile=Path("C:/Windows/Fonts/arial.ttf")
-    doc=fitz.open()
+    pdfmetrics.registerFont(TTFont("MIZAN_AR",str(fontfile)))
+    c=canvas.Canvas(str(path))
     for i in range(1,PAGES+1):
-        p=doc.new_page(); p.insert_font(fontname="AR",fontfile=str(fontfile))
         if i==1:
-            text="المحكمة الجزائية بمكة المكرمة\nالدائرة السادسة\nرقم القضية 4870236421\nرقم الحكم 123456789\nالتاريخ 18-04-1448"
+            lines=["المحكمة الجزائية بمكة المكرمة","الدائرة السادسة","رقم القضية 4870236421","رقم الحكم 123456789","التاريخ 18-04-1448"]
         elif i==2:
-            text="الطلبات\nيطلب المدعي الحكم بالتعويض بمبلغ 12500 ريال"
+            lines=["الطلبات","يطلب المدعي الحكم بالتعويض بمبلغ 12500 ريال"]
         elif i==20:
-            text="الاسباب\nثبت للمحكمة من المستندات محل النظر"
+            lines=["الأسباب","ثبت للمحكمة من المستندات محل النظر"]
         elif i==24:
-            text="المنطوق\nحكمت الدائرة بما هو مبين في هذا المثال الاصطناعي"
+            lines=["المنطوق","حكمت الدائرة بما هو مبين في هذا المثال الاصطناعي"]
         else:
-            text=("الوقائع\n"+"هذه صفحة اصطناعية لاختبار الاستخراج المباشر من الصك الطويل. "*30)
-        p.insert_textbox(fitz.Rect(50,50,545,790),text,fontsize=11,fontname="AR")
-    doc.save(path);doc.close()
+            lines=["الوقائع"]+["هذه صفحة اصطناعية لاختبار الاستخراج المباشر من الصك الطويل."]*18
+        y=790
+        c.setFont("MIZAN_AR",11)
+        for line in lines:
+            c.drawString(50,y,line)
+            y-=28
+        c.showPage()
+    c.save()
 
 def main():
     outp=Path("benchmarks/long_documents/results/a33-results.json")
     with tempfile.TemporaryDirectory() as td:
-        pdf=Path(td)/"judgment_24p.pdf";build(pdf)
+        pdf=Path(td)/"judgment_24p.pdf"; build(pdf)
         t=time.perf_counter()
         out=ingest_pdf(pdf_path=pdf,document_id="MIZAN-DOC-A33")
         elapsed=time.perf_counter()-t
