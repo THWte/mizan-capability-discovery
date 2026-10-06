@@ -3,11 +3,14 @@ on:
   pull_request:
     paths:
       - 'agents/mizan_agents/intelligent_document_ingestion.py'
-      - 'tests/long_documents/test_a33_intelligent_ingestion.py'
+      - 'tests/a33/**'
       - 'benchmarks/long_documents/run_a33.py'
       - 'docs/architecture/A33_INTELLIGENT_DOCUMENT_INGESTION.md'
       - '.github/workflows/a33-intelligent-ingestion.yml'
   workflow_dispatch:
+concurrency:
+  group: a33-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   windows-e2e:
     runs-on: windows-latest
@@ -34,6 +37,8 @@ jobs:
           PYTHONPATH: agents;contracts
         run: python -m pytest tests/architecture tests/contracts -q
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: a33-intelligent-ingestion-results
           path: benchmarks/long_documents/results/a33-results.json
+          if-no-files-found: warn
