@@ -101,7 +101,7 @@ _CIRCUIT_RE=re.compile(r"((?:الدائرة)\s+[\u0600-\u06FF\s0-9٠-٩]{2,60})"
 def _candidate(kind, value, page_number, span_id, confidence):
     return ExtractedCandidate(kind=kind,value=value.strip(),page_number=page_number,span_id=span_id,confidence=confidence)
 
-_CURRENCY_RE=re.compile(r"(?:ريال|ر\s*\.\s*س)")
+_CURRENCY_RE=re.compile(r"(?:ر\s*ي\s*ا\s*ل|ر\s*\.?\s*س)",re.I)
 _AMOUNT_TOKEN_RE=re.compile(r"(?<![0-9٠-٩])([0-9٠-٩][0-9٠-٩,٬]*(?:[.٫][0-9٠-٩]{1,2})?)(?![0-9٠-٩])")
 
 def _resolve_page_amounts(page_number:int,spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
@@ -111,15 +111,25 @@ def _resolve_page_amounts(page_number:int,spans:tuple[LegalSpan,...])->tuple[Ext
     out=[]
     seen=set()
     for cur in _CURRENCY_RE.finditer(page_text):
-        left=page_text[max(0,cur.start()-64):cur.start()]
-        nums=list(_AMOUNT_TOKEN_RE.finditer(left))
-        if not nums: continue
-        m=nums[-1]
-        value=m.group(1)
+        left_start=max(0,cur.start()-64)
+        right_end=min(len(page_text),cur.end()+64)
+        left=page_text[left_start:cur.start()]
+        right=page_text[cur.end():right_end]
+        candidates=[]
+        left_nums=list(_AMOUNT_TOKEN_RE.finditer(left))
+        if left_nums:
+            m=left_nums[-1]
+            candidates.append((m.group(1),left_start+m.start(1),cur.start()-(left_start+m.end(1))))
+        right_nums=list(_AMOUNT_TOKEN_RE.finditer(right))
+        if right_nums:
+            m=right_nums[0]
+            candidates.append((m.group(1),cur.end()+m.start(1),m.start(1)))
+        if not candidates: continue
+        value,absolute,_distance=min(candidates,key=lambda x:x[2])
         # Reject date-like or identifier-like tokens; currency proximity alone
         # must not turn a case/judgment number into an amount.
-        if "-" in value or "/" in value or len(re.sub(r"\D","",value))>12: continue
-        absolute=max(0,cur.start()-64)+m.start(1)
+        digits=re.sub(r"[^0-9٠-٩]","",value)
+        if "-" in value or "/" in value or len(digits)>12: continue
         owner=next((s for s in spans if s.start_offset<=absolute<s.end_offset),spans[0])
         key=(value,owner.span_id)
         if key not in seen:
