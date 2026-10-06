@@ -34,3 +34,13 @@ def test_amount_resolver_requires_currency_and_handles_arabic_digits_across_line
     assert got[0].verified is False
     bare=segment_page(1,"رقم القضية 4870236421")
     assert _resolve_page_amounts(1,bare)==()
+
+
+def test_amount_resolver_accepts_rtl_currency_before_number_and_spaced_currency():
+    from mizan_agents.legal_segmentation import segment_page
+    rtl=segment_page(1,"ريال\n12500")
+    got=_resolve_page_amounts(1,rtl)
+    assert len(got)==1 and got[0].value=="12500"
+    spaced=segment_page(1,"12500 ر ي ا ل")
+    got2=_resolve_page_amounts(1,spaced)
+    assert len(got2)==1 and got2[0].value=="12500"
