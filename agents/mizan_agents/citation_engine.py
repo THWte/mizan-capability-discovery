@@ -100,8 +100,8 @@ def create_citation(
     if end > len(observation.raw_text):
         raise CitationError("span offsets exceed observation raw text")
     quoted_raw=observation.raw_text[start:end]
-    # normalized text is preserved from the canonical observation; no new semantic normalization is invented.
-    quoted_normalized=observation.normalized_text[start:end] if end <= len(observation.normalized_text) else observation.normalized_text
+    # Raw offsets are applied before NFKC normalization; normalized offsets may differ.
+    quoted_normalized=normalize_text(quoted_raw)
 
     return CitationRecord(
         citation_id=_citation_id(source_identity.sha256, span.span_locator, observation_id),
