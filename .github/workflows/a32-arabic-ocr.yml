@@ -14,6 +14,8 @@ jobs:
     env:
       DISABLE_MODEL_SOURCE_CHECK: 'True'
       PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,6 +30,7 @@ jobs:
       - name: Verify A32 metric/recovery tests
         run: python -m pytest tests/benchmarks/test_a32_ocr_metrics.py -q
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: a32-arabic-ocr-results
           path: |
