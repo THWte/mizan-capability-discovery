@@ -90,7 +90,7 @@ def _label_present(text:str,kind:ExtractionKind)->bool:
     letters=_arabic_letters(text)
     return any(_arabic_letters(label) in letters for label in _ARABIC_LABELS[kind])
 _DATE_RE=re.compile(r"(?<!\d)(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})(?!\d)")
-_AMOUNT_RE=re.compile(r"(?<!\d)(\d[\d,]*(?:\.\d{1,2})?)\s*(?:ريال|ر\.س)")
+_AMOUNT_RE=re.compile(r"(?<!\d)(\d[\d,]*(?:\.\d{1,2})?)(?=[\s\S]{0,24}(?:ريال|ر\.س))")
 _MACHINE_CASE_RE=re.compile(r"CASE_NUMBER\s*[:=-]?\s*([0-9]{6,14})",re.I)
 _MACHINE_JUDGMENT_RE=re.compile(r"JUDGMENT_NUMBER\s*[:=-]?\s*([0-9]{5,14})",re.I)
 _MACHINE_DATE_RE=re.compile(r"DATE\s*[:=-]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})",re.I)
