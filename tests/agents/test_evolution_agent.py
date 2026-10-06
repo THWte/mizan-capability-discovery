@@ -50,7 +50,24 @@ def test_missing_required_fields_rejected():
         ProposedAmendment(proposal_id="", title="", rationale="", affected_invariants=())
 
 
-def test_duplicate_proposal_id_rejected_by_append_only_memory():
+def test_requires_new_adr_cannot_be_disabled():
+    """PART 19: no proposal, however worded, can exempt itself from the
+    human-ADR gate for PROTECTED_TARGETS."""
+    with pytest.raises(AgentContractError):
+        ProposedAmendment(
+            proposal_id="P5",
+            title="Sneaky self-adopting change",
+            rationale="This should not be allowed to skip ADR review.",
+            affected_invariants=(1,),
+            requires_new_adr=False,
+        )
+
+
+def test_protected_targets_include_invariants_and_contracts():
+    from mizan_agents.evolution_agent import PROTECTED_TARGETS
+
+    assert "docs/architecture/ARCHITECTURAL_INVARIANTS.md" in PROTECTED_TARGETS
+    assert any("contracts/mizan_contracts" in target for target in PROTECTED_TARGETS)
     agent = EvolutionAgent()
     memory = GovernedMemory()
     agent.propose(

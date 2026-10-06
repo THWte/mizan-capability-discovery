@@ -18,6 +18,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Optional
 
+from .epistemic import FORBIDDEN_KEYS, validate_no_promoted_epistemic_state
 from .errors import AgentContractError
 from .registry import KNOWN_AGENT_ROLES
 
@@ -36,8 +37,11 @@ KNOWN_STAGES = (
 
 KNOWN_STATUSES = ("pending", "accepted", "rejected")
 
-# No handoff payload may carry a promoted truth status (Invariant 2).
-FORBIDDEN_PAYLOAD_KEYS = ("fact", "accepted_fact", "verified_fact", "candidate_fact")
+# No handoff payload may carry a promoted truth status (Invariant 2), at
+# any nesting depth. Kept as an alias of the shared, canonical list in
+# ``epistemic.py`` so both this module and ``memory.py`` can never drift
+# apart on what counts as "forbidden".
+FORBIDDEN_PAYLOAD_KEYS = FORBIDDEN_KEYS
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -78,14 +82,11 @@ class Handoff:
             raise AgentContractError(f"Unknown stage: {self.stage!r}.")
         if not isinstance(self.payload, dict):
             raise AgentContractError("payload must be a dict.")
-        for key in FORBIDDEN_PAYLOAD_KEYS:
-            if key in self.payload:
-                raise AgentContractError(
-                    f"Handoff payload contains forbidden key {key!r}. No agent "
-                    "handoff may carry a Fact/AcceptedFact/VerifiedFact/"
-                    "CandidateFact -- an Observation cannot be promoted via the "
-                    "Handoff Contract (Architectural Invariant 2)."
-                )
+        # Recursive: a forbidden key nested inside a dict/list/tuple of any
+        # depth must be rejected exactly as a top-level key would be (see
+        # epistemic.py for why the original top-level-only check was
+        # insufficient).
+        validate_no_promoted_epistemic_state(self.payload)
         if not isinstance(self.invariant_refs, tuple):
             raise AgentContractError("invariant_refs must be a tuple of ints.")
         for ref in self.invariant_refs:

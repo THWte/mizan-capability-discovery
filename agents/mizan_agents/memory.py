@@ -17,19 +17,40 @@ society. Two rules give it its governance teeth:
    Traceability).
 
 Governed Memory also rejects any value carrying a promoted-truth-status key
-(``fact``/``accepted_fact``/...), mirroring the same Invariant 2 rule
-enforced at the Handoff Contract layer -- memory is a second place that
-promotion could otherwise be smuggled in, so it is checked here too.
+(``fact``/``accepted_fact``/...) at any nesting depth, mirroring the same
+Invariant 2 rule enforced at the Handoff Contract layer -- memory is a
+second place that promotion could otherwise be smuggled in, so it is
+checked here too, recursively (see ``epistemic.py``).
+
+3. **Privileged shared-namespace ACL.** Not every ``shared/*`` key is
+   equally sensitive. A small set of shared sub-namespaces (currently
+   ``shared/architecture_approval/*`` and ``shared/verified/*``) are
+   reserved for the Architecture Guardian only -- no other agent may write
+   into them, even though they live under the otherwise-open ``shared/``
+   prefix. This prevents, e.g., the Evolution Agent or QA/Red-Team agent
+   from writing a fake architecture-approval record into shared memory.
 """
 from __future__ import annotations
 
 import dataclasses
 from typing import Any
 
+from .epistemic import FORBIDDEN_KEYS, validate_no_promoted_epistemic_state
 from .errors import AgentContractError
-from .registry import KNOWN_AGENT_ROLES
+from .registry import ARCHITECTURE_GUARDIAN, KNOWN_AGENT_ROLES
 
-FORBIDDEN_VALUE_KEYS = ("fact", "accepted_fact", "verified_fact", "candidate_fact")
+# Kept as an alias of the shared, canonical list in ``epistemic.py`` so
+# this module and ``handoff_contract.py`` can never drift apart on what
+# counts as "forbidden".
+FORBIDDEN_VALUE_KEYS = FORBIDDEN_KEYS
+
+# shared/<prefix>/... namespaces that only specific agent roles may write
+# to, even though they are nominally under the shared/ prefix that is
+# otherwise open to every known agent role.
+SHARED_PRIVILEGED_PREFIXES: dict[str, tuple[str, ...]] = {
+    "shared/architecture_approval/": (ARCHITECTURE_GUARDIAN,),
+    "shared/verified/": (ARCHITECTURE_GUARDIAN,),
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,20 +81,21 @@ class GovernedMemory:
                 f"namespace ({written_by}/...) and not in the shared namespace "
                 "(shared/...)."
             )
+        if namespace == "shared":
+            for prefix, allowed_roles in SHARED_PRIVILEGED_PREFIXES.items():
+                if key.startswith(prefix) and written_by not in allowed_roles:
+                    raise AgentContractError(
+                        f"Key {key!r} is in a privileged shared namespace "
+                        f"({prefix}*) reserved for {allowed_roles}; "
+                        f"{written_by!r} may not write it."
+                    )
         if key in self._entries:
             raise AgentContractError(
                 f"Key {key!r} already exists. Governed memory is append-only: "
                 "write a new, distinct key instead of overwriting an existing "
                 "entry."
             )
-        if isinstance(value, dict):
-            for forbidden in FORBIDDEN_VALUE_KEYS:
-                if forbidden in value:
-                    raise AgentContractError(
-                        f"Memory value contains forbidden key {forbidden!r}. "
-                        "Governed memory may hold Observations/Evidence, never a "
-                        "Fact/AcceptedFact (Architectural Invariant 2)."
-                    )
+        validate_no_promoted_epistemic_state(value)
         entry = MemoryEntry(
             key=key,
             value=value,

@@ -35,14 +35,14 @@ repeatedly, not just remembered.
 
 | Agent | Responsibility | What it is explicitly NOT allowed to do |
 |---|---|---|
-| **Master Orchestrator** | Routes Handoffs between agents; the only agent that may mark a task complete | Cannot mark a task complete without an ACCEPTED Architecture Guardian handoff for that task — no bypass path exists |
-| **Conversation Intelligence** | Classifies a user directive's intent (observation only) | Cannot approve, reject, merge, or promote anything to Fact/Accepted Fact |
-| **Architecture Guardian** | Reviews a Handoff's payload against specific, named Invariant violations; issues PASS/FAIL | Cannot be skipped by the Orchestrator; cannot itself be overridden by any other agent |
-| **Capability Discovery** | Records REUSE/EXTEND/CONNECT/INSPIRE/REJECT decisions | Cannot record a decision without a real, existing evidence file in this repo; never runs an engine or benchmark itself |
+| **Master Orchestrator** | Routes Handoffs between agents; the only agent that may mark a task complete | (v1.1) Cannot mark a task complete without a digest-bound `GuardianApproval` whose `reviewed_handoff_id` resolves to a real, routed Handoff and whose stored digest still matches that handoff's *current* payload — no bypass path exists, and a bare "accepted" Handoff is no longer sufficient |
+| **Conversation Intelligence** | Classifies a user directive's `intent` and (v1.1) `claim_type` (USER_DIRECTIVE/REPORTED_STATE/QUESTION/PROPOSAL/CORRECTION) | Cannot approve, reject, merge, or promote anything to Fact/Accepted Fact; a `REPORTED_STATE`/`CORRECTION` claim is structurally forced to carry `verification_required=true` |
+| **Architecture Guardian** | Reviews a Handoff's payload against specific, named Invariant violations; issues PASS/FAIL with explicit `checked_invariants`/`unchecked_invariants` and (v1.1) issues a digest-bound `GuardianApproval` via `approve()` | Cannot be skipped by the Orchestrator; cannot itself be overridden by any other agent; cannot claim `coverage=FULL` while any invariant is unchecked |
+| **Capability Discovery** | Records REUSE/EXTEND/CONNECT/INSPIRE/REJECT/(v1.1)CONTINUE_BENCHMARKING decisions, plus a (v1.1) `lifecycle_status` (DISCOVERED→EVALUATED→CANDIDATE→APPROVED/REJECTED) | Cannot record a decision without a real, existing evidence file in this repo; never runs an engine or benchmark itself; cannot reach `lifecycle_status=APPROVED` without a non-empty `human_approval_reference` |
 | **Evidence/Provenance** | Resolves an Observation's provenance chain to a SHA-256 Source Artifact | Produces only an `EvidenceRecord` — has no `status`, `to_fact()`, or `to_accepted_fact()` method; cannot promote further |
 | **QA/Red-Team** | Deliberately attempts known-bad operations (fact smuggling, memory overwrite, cross-namespace write, engine-id-as-locator) and reports whether they were rejected | Does not "fix" failures itself — only reports pass/fail of each attack |
 | **Git/PR Auditor** | Audits a list of changed file paths against a declared scope | Performs no real git/GitHub operation (no clone, push, merge, or PR creation) |
-| **Evolution Agent** | Proposes architecture amendments as structured, pending records | Cannot edit `ARCHITECTURAL_INVARIANTS.md` or any ADR file; cannot adopt its own proposal — only a new, human-authored ADR amends the Invariants |
+| **Evolution Agent** | Proposes architecture amendments as structured, pending records | Cannot edit `ARCHITECTURAL_INVARIANTS.md`, any ADR file, Core Contracts, agent authority, or memory governance ACLs (v1.1 `PROTECTED_TARGETS`); cannot adopt its own proposal — `requires_new_adr` is structurally fixed `true`, and only a new, human-authored ADR amends the Invariants |
 
 ## The Handoff Contract (`agents/mizan_agents/handoff_contract.py`)
 
@@ -132,3 +132,99 @@ This skeleton intentionally does **not**:
   `agents/mizan_agents/registry.py` and must use the Handoff Contract and
   Governed Memory for all cross-agent communication — direct method calls
   or shared mutable state between agent classes are not permitted.
+
+---
+
+## Amendment v1.1 — Hardening and the two-layer runtime distinction
+
+**Status:** Amendment, not a silent rewrite of the v1 decision above. The
+v1 skeleton described everything above this line; this section documents
+what the v1.1 hardening pass added and, importantly, the relationship
+between two things that must not be conflated:
+
+1. **The Python Governance Core** (`agents/mizan_agents/`) — the
+   deterministic, testable rules described in this document: the Handoff
+   Contract, Governed Memory, Architecture Guardian's invariant checks,
+   `GuardianApproval` digest-binding, and so on. This is what the
+   `tests/agents/` suite actually exercises, and what this document is
+   normative about.
+2. **The GitHub Custom Agent Runtime** (`.github/agents/*.agent.md`) —
+   eight Markdown agent profiles (`mizan-master`,
+   `conversation-intelligence`, `architecture-guardian`,
+   `capability-discovery`, `evidence-provenance`, `qa-redteam`,
+   `git-pr-auditor`, `evolution`) that let a human invoke each role as a
+   distinct GitHub Copilot custom agent, with role-appropriate tool
+   permissions (e.g. Architecture Guardian and Evolution Agent profiles
+   deliberately omit the `edit` tool so they cannot self-approve or
+   self-adopt). These profiles are **delegation surfaces and instruction
+   sets** for a human- or Copilot-driven session; they do not themselves
+   execute the Python Governance Core's logic, and the Core does not
+   depend on them. There is currently no official local validator that
+   confirms these profiles against GitHub's live custom-agent schema —
+   `tests/agents/test_github_agent_profiles.py` performs only an offline,
+   structural check (file presence, frontmatter shape, known tool
+   aliases, required section headings) and does not claim to be an
+   official conformance test.
+
+Conceptual data flow:
+
+```
+GitHub Agent Profile (.github/agents/*.agent.md)
+        │  (human/Copilot invokes a named role)
+        ▼
+Agent Instructions / Delegation (ROLE, READ-FIRST, SOURCE OF TRUTH, ...)
+        │  (agent reasons, then calls into or mirrors)
+        ▼
+MIZAN Governance Core (agents/mizan_agents/*.py)
+        │  (Handoff Contract, Governed Memory, Guardian, Orchestrator)
+        ▼
+Handoff / Memory / Guardian Approval / Audit (tested, deterministic)
+```
+
+### Other v1.1 changes to the Governance Core (summary; see module
+docstrings for full detail)
+
+- **Recursive epistemic validation** (`epistemic.py`): the
+  forbidden-promoted-fact-key check now walks dicts/lists/tuples at any
+  nesting depth, closing the v1 gap where a nested `accepted_fact` could
+  slip past a top-level-only check, at both the Handoff Contract and
+  Governed Memory layers.
+- **Tamper-resistant `GuardianApproval`** (`guardian_approval.py`,
+  `canonical_digest.py`): a `GuardianApproval` is bound to a specific
+  reviewed Handoff via a canonical SHA-256 payload digest.
+  `MasterOrchestrator.complete()` now requires this object and
+  independently re-derives the digest from the live, routed Handoff at
+  completion time — catching forged approvals, cross-handoff relabeling,
+  and mutate-after-review (TOCTOU) attacks. See
+  `tests/agents/test_hardening_v1_1.py` for the full adversarial
+  catalogue (cases A–L).
+- **Guardian coverage honesty**: `GuardianVerdict.coverage` is always
+  `"PARTIAL"` in v1, with explicit `checked_invariants`/
+  `unchecked_invariants` and a `scoped_label` property
+  (`CHECKED_PASS`/`CHECKED_FAIL`/`PARTIAL_PASS`) so a scoped PASS can
+  never be read as full-architecture certification.
+- **Governed Memory ACL**: `SHARED_PRIVILEGED_PREFIXES` restricts
+  `shared/architecture_approval/*` and `shared/verified/*` to
+  Architecture Guardian only, even though they live under the otherwise-
+  open `shared/` namespace.
+- **Conversation Intelligence claim typing**: `claim_type`
+  (`USER_DIRECTIVE`/`REPORTED_STATE`/`QUESTION`/`PROPOSAL`/`CORRECTION`)
+  and `verification_required` make "a reported state is not a verified
+  fact" machine-checkable instead of merely a convention — e.g. "PR #7
+  مدموج" classifies as `REPORTED_STATE` with `verification_required=true`,
+  never auto-upgraded.
+- **Capability Discovery lifecycle axis**: `lifecycle_status`
+  (`DISCOVERED`→`EVALUATED`→`CANDIDATE`→`APPROVED`/`REJECTED`) is
+  orthogonal to the existing `decision` field; reaching `APPROVED`
+  structurally requires a non-empty `human_approval_reference` (mirrors
+  the PaddleOCR precedent: sandbox `CONNECT` decision ≠ production
+  approval).
+- **Evolution Agent protected targets**: `PROTECTED_TARGETS` and a
+  structurally-fixed `requires_new_adr=true` field make explicit that no
+  proposal can ever exempt itself from human ADR review for the
+  Invariants document, ADRs, Core Contracts, agent authority, or memory
+  governance.
+
+No change in this amendment modifies `contracts/mizan_contracts/`,
+`docs/architecture/ARCHITECTURAL_INVARIANTS.md`, or anything in
+`sandboxes/docling/` (PR #2) or `sandboxes/paddleocr/` (PR #5).

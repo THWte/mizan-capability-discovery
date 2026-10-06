@@ -136,3 +136,39 @@ We additionally decide to:
   defined first; a general-purpose framework remains a future,
   independently-gated evaluation (already queued in `docs/roadmap.md`
   Phase 2), not a prerequisite for this skeleton.
+
+## Amendment v1.1 (2026-10-06, same PR cycle) — hardening, not a new decision
+
+This ADR's original decision (above) stands unchanged. The v1.1 hardening
+pass closed six identified vulnerabilities in the skeleton's enforcement
+without altering any of the role boundaries, scope limits, or "what this
+ADR explicitly does NOT decide" items listed above:
+
+- Master Orchestrator's completion gate (#1 above) now requires a
+  digest-bound `GuardianApproval`, re-verified against the live routed
+  Handoff at completion time, instead of trusting any Handoff merely
+  labeled `from_agent=architecture_guardian, status=accepted`.
+- Invariant-2 enforcement (Handoff Contract + Governed Memory) is now
+  recursive (any nesting depth), not top-level-only.
+- Architecture Guardian's `coverage` field and `scoped_label` make the
+  existing "fixed, enumerated list of specific invariant violations"
+  limitation (already disclosed in Negative/open risk, above) explicit and
+  machine-readable rather than only prose-documented.
+- Governed Memory gained a privileged-namespace ACL
+  (`SHARED_PRIVILEGED_PREFIXES`) so Architecture Guardian's approval
+  records cannot be forged by another agent writing to the same shared
+  namespace.
+- Conversation Intelligence and Capability Discovery gained additional
+  classification fields (`claim_type`/`verification_required`,
+  `lifecycle_status`) that make existing informal rules ("a reported merge
+  is not a verified merge", "a CONNECT decision is not a production
+  approval") structurally enforced instead of only conventions.
+- Eight `.github/agents/*.agent.md` GitHub Custom Agent profiles were
+  added as a **separate runtime layer** (delegation/instruction surface),
+  distinct from this ADR's Python Governance Core decision. See
+  `AGENT_SOCIETY.md`'s "Amendment v1.1" section for the full
+  two-layer-runtime explanation and data-flow diagram.
+
+No change in this amendment modifies `contracts/mizan_contracts/`,
+`docs/architecture/ARCHITECTURAL_INVARIANTS.md`, `sandboxes/docling/`
+(PR #2), or `sandboxes/paddleocr/` (PR #5).

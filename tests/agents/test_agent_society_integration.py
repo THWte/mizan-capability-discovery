@@ -1,11 +1,16 @@
-"""End-to-end integration test for the MIZAN Agent Society v1.
+"""End-to-end integration test for the MIZAN Agent Society v1 (v1.1,
+hardened GuardianApproval binding flow).
 
 Exercises a realistic Handoff chain across multiple agents, including a
 deliberately-failing path: a Handoff whose payload would violate an
 Architectural Invariant must be rejected by the Architecture Guardian, and
 that rejection must actually block ``MasterOrchestrator.complete()`` -- not
-just produce a warning that is otherwise ignored.
+just produce a warning that is otherwise ignored. Also exercises a forged
+"accepted" Handoff from architecture_guardian that carries no real
+GuardianApproval, which v1.1 must now reject (AC-A10).
 """
+import pytest
+
 from mizan_agents.architecture_guardian import ArchitectureGuardianAgent
 from mizan_agents.conversation_intelligence import ConversationIntelligenceAgent
 from mizan_agents.errors import AgentContractError
@@ -57,34 +62,31 @@ def test_clean_task_reaches_completion_through_full_chain():
     )
     assert scope_report.verdict == "PASS"
 
-    # 4. Architecture Guardian reviews and accepts.
-    verdict = guardian.review(intake)
-    assert verdict.verdict == "PASS"
+    # 4. Architecture Guardian reviews and issues a bound GuardianApproval
+    #    (not a hand-constructed Handoff claiming acceptance).
+    approval = guardian.approve(intake, approval_id="GA-100", issued_at="t2")
+    assert approval.verdict == "PASS"
+    assert approval.coverage == "PARTIAL"  # v1 Guardian never claims FULL
 
-    approval = Handoff(
-        handoff_id="H-100-2",
-        task_id=task_id,
-        from_agent=ARCHITECTURE_GUARDIAN,
-        to_agent=MASTER_ORCHESTRATOR,
-        stage="complete",
-        payload={"verdict": verdict.verdict},
-        status="accepted",
-        produced_at="t2",
-    )
-    orchestrator.route(approval)
-
-    # 5. Orchestrator can now mark the task complete.
-    orchestrator.complete(task_id)
+    # 5. Orchestrator can now mark the task complete, using the real
+    #    approval bound to the exact routed handoff.
+    orchestrator.complete(task_id, approval)
     assert orchestrator.is_complete(task_id)
 
-    # 6. The Guardian's PASS verdict is recorded in Governed Memory for audit.
+    # 6. The Guardian's verdict is recorded in Governed Memory for audit,
+    #    in the privileged shared/architecture_approval/ namespace that
+    #    only architecture_guardian may write.
     memory.write(
-        key=f"{ARCHITECTURE_GUARDIAN}/verdict/{task_id}",
-        value={"verdict": verdict.verdict, "violated_invariants": list(verdict.violated_invariants)},
+        key=f"shared/architecture_approval/{task_id}",
+        value={
+            "verdict": approval.verdict,
+            "coverage": approval.coverage,
+            "checked_invariants": list(approval.checked_invariants),
+        },
         written_by=ARCHITECTURE_GUARDIAN,
         written_at="t3",
     )
-    assert memory.read(f"{ARCHITECTURE_GUARDIAN}/verdict/{task_id}").value["verdict"] == "PASS"
+    assert memory.read(f"shared/architecture_approval/{task_id}").value["verdict"] == "PASS"
 
 
 def test_invariant_violating_task_is_blocked_from_completion():
@@ -108,30 +110,12 @@ def test_invariant_violating_task_is_blocked_from_completion():
     )
     orchestrator.route(bad_intake)
 
-    verdict = guardian.review(bad_intake)
-    assert verdict.verdict == "FAIL"
-    assert 3 in verdict.violated_invariants
+    approval = guardian.approve(bad_intake, approval_id="GA-200", issued_at="t2")
+    assert approval.verdict == "FAIL"
+    assert 3 in approval.violated_invariants
 
-    rejection = Handoff(
-        handoff_id="H-200-2",
-        task_id=task_id,
-        from_agent=ARCHITECTURE_GUARDIAN,
-        to_agent=MASTER_ORCHESTRATOR,
-        stage="complete",
-        payload={"verdict": verdict.verdict},
-        status="rejected",
-        rejection_reason="; ".join(verdict.reasons),
-        produced_at="t2",
-    )
-    orchestrator.route(rejection)
-
-    assert not orchestrator.is_architecture_approved(task_id)
-    try:
-        orchestrator.complete(task_id)
-        raised = False
-    except AgentContractError:
-        raised = True
-    assert raised, "Orchestrator must not complete a task the Guardian rejected."
+    with pytest.raises(AgentContractError):
+        orchestrator.complete(task_id, approval)
     assert not orchestrator.is_complete(task_id)
 
 
@@ -152,25 +136,41 @@ def test_approval_for_one_task_does_not_leak_to_another_in_full_chain():
         produced_at="t1",
     )
     orchestrator.route(handoff)
-    verdict = guardian.review(handoff)
-    approval = Handoff(
-        handoff_id="H-300-2",
-        task_id=approved_task,
-        from_agent=ARCHITECTURE_GUARDIAN,
-        to_agent=MASTER_ORCHESTRATOR,
-        stage="complete",
-        payload={"verdict": verdict.verdict},
-        status="accepted",
-        produced_at="t2",
-    )
-    orchestrator.route(approval)
-    orchestrator.complete(approved_task)
+    approval = guardian.approve(handoff, approval_id="GA-300", issued_at="t2")
+    orchestrator.complete(approved_task, approval)
 
     assert orchestrator.is_complete(approved_task)
     assert not orchestrator.is_complete(other_task)
-    try:
-        orchestrator.complete(other_task)
-        raised = False
-    except AgentContractError:
-        raised = True
-    assert raised
+    with pytest.raises(AgentContractError):
+        orchestrator.complete(other_task, approval)
+
+
+def test_forged_accepted_handoff_without_real_approval_cannot_complete():
+    """AC-A10: a hand-constructed Handoff claiming
+    from_agent=architecture_guardian, status=accepted -- with no
+    ArchitectureGuardianAgent.review()/approve() call behind it at all --
+    must not be sufficient to complete a task. v1.1 removed the API path
+    that would have accepted this: complete() now requires a
+    GuardianApproval object, which this forged Handoff is not and cannot
+    be converted into."""
+    orchestrator = MasterOrchestrator()
+
+    task_id = "TASK-400"
+    forged_acceptance = Handoff(
+        handoff_id="H-400-1",
+        task_id=task_id,
+        from_agent=ARCHITECTURE_GUARDIAN,
+        to_agent=MASTER_ORCHESTRATOR,
+        stage="complete",
+        payload={"verdict": "PASS"},
+        status="accepted",
+        produced_at="t1",
+    )
+    orchestrator.route(forged_acceptance)
+
+    # The only route to completion requires an approval argument; a
+    # forged Handoff, however convincing, is not one and there is no
+    # overload that accepts it instead.
+    with pytest.raises(TypeError):
+        orchestrator.complete(task_id)
+    assert not orchestrator.is_complete(task_id)

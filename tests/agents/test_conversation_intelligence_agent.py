@@ -50,9 +50,82 @@ def test_produced_by_is_fixed_agent_name():
 
 def test_directive_has_no_approval_authority_fields():
     """This agent's output type carries no field that could let it approve,
-    reject, or promote anything -- only raw_text/normalized_text/intent/
-    produced_by exist."""
+    reject, or promote anything -- only observation/classification fields
+    exist, never an approval/acceptance/fact field."""
     agent = ConversationIntelligenceAgent()
     directive = agent.interpret("review this")
     field_names = {f.name for f in __import__("dataclasses").fields(directive)}
-    assert field_names == {"raw_text", "normalized_text", "intent", "produced_by"}
+    assert field_names == {
+        "raw_text",
+        "normalized_text",
+        "intent",
+        "claim_type",
+        "verification_required",
+        "confidence_class",
+        "produced_by",
+    }
+
+
+def test_reported_merge_state_classified_as_reported_state_requiring_verification():
+    """PART 17 worked example: 'PR #7 مدموج' (PR #7 is merged) is a report
+    about the world, not an instruction -- it must never be silently
+    trusted as fact without verification."""
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("PR #7 مدموج")
+    assert directive.claim_type == "REPORTED_STATE"
+    assert directive.verification_required is True
+    assert directive.confidence_class == "UNVERIFIED_REPORTED_STATE"
+
+
+def test_reported_state_in_english_also_classified_correctly():
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("PR #7 is merged")
+    assert directive.claim_type == "REPORTED_STATE"
+    assert directive.verification_required is True
+
+
+def test_imperative_merge_instruction_is_user_directive_not_reported_state():
+    """The Arabic root collision case: 'ادمج' (imperative 'merge it') must
+    not be misclassified as a REPORTED_STATE merely because it shares a
+    root with 'مدموج' (reported 'is merged')."""
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("ادمج PR رقم 7")
+    assert directive.claim_type == "USER_DIRECTIVE"
+    assert directive.verification_required is False
+
+
+def test_question_classified_as_question_not_reported_state():
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("هل تم دمج PR رقم 7؟")
+    assert directive.claim_type == "QUESTION"
+    assert directive.verification_required is False
+
+
+def test_proposal_classified_separately():
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("أقترح أن نستخدم فرعًا جديدًا")
+    assert directive.claim_type == "PROPOSAL"
+    assert directive.verification_required is False
+
+
+def test_correction_claim_requires_verification():
+    agent = ConversationIntelligenceAgent()
+    directive = agent.interpret("هذا خطأ، التقرير السابق غير صحيح")
+    assert directive.claim_type == "CORRECTION"
+    assert directive.verification_required is True
+
+
+def test_reported_state_cannot_be_constructed_without_verification_required():
+    """Structural enforcement: even a hand-constructed ConversationDirective
+    cannot claim REPORTED_STATE while disabling verification_required."""
+    from mizan_agents.conversation_intelligence import ConversationDirective
+
+    with pytest.raises(AgentContractError):
+        ConversationDirective(
+            raw_text="PR #7 مدموج",
+            normalized_text="PR #7 مدموج",
+            intent="unclassified",
+            claim_type="REPORTED_STATE",
+            verification_required=False,
+            confidence_class="UNVERIFIED_REPORTED_STATE",
+        )

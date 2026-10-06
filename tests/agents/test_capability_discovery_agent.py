@@ -74,6 +74,64 @@ def test_empty_capability_name_rejected():
         )
 
 
+def test_default_lifecycle_status_is_evaluated_not_approved():
+    agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
+    record = agent.record_decision(
+        capability_name="example-capability",
+        decision="CONNECT",
+        evidence_doc=_REAL_EVIDENCE_DOC,
+    )
+    assert record.lifecycle_status == "EVALUATED"
+    assert record.human_approval_reference is None
+
+
+def test_continue_benchmarking_is_a_valid_decision():
+    agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
+    record = agent.record_decision(
+        capability_name="still-under-test",
+        decision="CONTINUE_BENCHMARKING",
+        evidence_doc=_REAL_EVIDENCE_DOC,
+    )
+    assert record.decision == "CONTINUE_BENCHMARKING"
+
+
+def test_approved_lifecycle_requires_human_approval_reference():
+    """PaddleOCR precedent: CONNECT decision != Production Capability = YES.
+    A capability cannot be marked APPROVED on the sandbox decision alone."""
+    agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
+    with pytest.raises(AgentContractError):
+        agent.record_decision(
+            capability_name="paddleocr-like",
+            decision="CONNECT",
+            evidence_doc=_REAL_EVIDENCE_DOC,
+            lifecycle_status="APPROVED",
+        )
+
+
+def test_approved_lifecycle_succeeds_with_human_approval_reference():
+    agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
+    record = agent.record_decision(
+        capability_name="paddleocr-like",
+        decision="CONNECT",
+        evidence_doc=_REAL_EVIDENCE_DOC,
+        lifecycle_status="APPROVED",
+        human_approval_reference="PR #99 merged by human reviewer",
+    )
+    assert record.lifecycle_status == "APPROVED"
+    assert record.human_approval_reference
+
+
+def test_unknown_lifecycle_status_rejected():
+    agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
+    with pytest.raises(AgentContractError):
+        agent.record_decision(
+            capability_name="example-capability",
+            decision="CONNECT",
+            evidence_doc=_REAL_EVIDENCE_DOC,
+            lifecycle_status="PRODUCTION_READY",
+        )
+
+
 def test_multiple_decisions_accumulate_in_order():
     agent = CapabilityDiscoveryAgent(repo_root=_REPO_ROOT)
     agent.record_decision(
