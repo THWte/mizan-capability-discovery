@@ -76,3 +76,13 @@ def test_offsets_outside_raw_text_rejected():
 def test_citation_id_is_deterministic():
     a,_=make(); b,_=make()
     assert a.citation_id==b.citation_id
+
+
+def test_normalized_quote_is_derived_from_raw_quote_not_raw_offsets_into_nfkc_text():
+    o,p,s,sr,d,dv,pg,b,sp=fixture()
+    raw="A\ufb03B"  # NFKC expands the ligature to 'ffi'
+    o=RawObservation(stable_locator=sp.span_locator,raw_text=raw,normalized_text=normalize_text(raw),produced_by="paddleocr")
+    sp=dataclasses.replace(sp,start_offset=1,end_offset=2)
+    c=create_citation(observation_id="OBS-U",observation=o,provenance=p,source_identity=s,source_record=sr,document_identity=d,document_version=dv,page=pg,block=b,span=sp)
+    assert c.quoted_raw_text=="\ufb03"
+    assert c.quoted_normalized_text=="ffi"
