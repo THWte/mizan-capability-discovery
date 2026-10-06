@@ -27,7 +27,7 @@ jobs:
       - name: A11 targeted tests
         env:
           PYTHONPATH: agents:contracts
-        run: python -m pytest tests/retrieval tests/citation -q
+        run: python -m pytest tests/retrieval tests/agents/test_citation_engine.py -q
       - name: Architecture regression
         env:
           PYTHONPATH: agents:contracts
