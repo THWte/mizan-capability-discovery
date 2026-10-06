@@ -5,11 +5,14 @@ on:
       - 'agents/mizan_agents/long_document_stream.py'
       - 'agents/mizan_agents/selective_ocr.py'
       - 'agents/mizan_agents/legal_segmentation.py'
-      - 'benchmarks/long_documents/**'
+      - 'benchmarks/long_documents/run_a30.py'
       - 'tests/long_documents/**'
       - 'docs/architecture/LONG_DOCUMENT_INTELLIGENCE_V1.md'
       - '.github/workflows/a27-a30-long-documents.yml'
   workflow_dispatch:
+concurrency:
+  group: a27-a30-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
