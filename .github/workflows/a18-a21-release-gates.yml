@@ -1,0 +1,31 @@
+name: A18-A21 Local Runtime Release Gates
+on:
+  pull_request:
+    paths:
+      - "agents/mizan_agents/local_runtime_gate.py"
+      - "agents/mizan_agents/golden_review.py"
+      - "agents/mizan_agents/engine_hardening.py"
+      - "agents/mizan_agents/release_readiness.py"
+      - "tests/release/**"
+      - "docs/architecture/LOCAL_RUNTIME_RELEASE_GATES_V1.md"
+      - ".github/workflows/a18-a21-release-gates.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install pytest
+      - name: Release and hardening adversarial tests
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/release -q
+      - name: Production governance regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/production tests/knowledge tests/retrieval -q
+      - name: Architecture regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/architecture -q
