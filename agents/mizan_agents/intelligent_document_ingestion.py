@@ -75,6 +75,20 @@ class IngestedLegalDocument:
 
 _CASE_RE=re.compile(r"(?:رقم\s*(?:القضية|الدعوى)\s*[:：-]?\s*)([0-9٠-٩]{6,14})")
 _JUDGMENT_RE=re.compile(r"(?:رقم\s*(?:الحكم|الصك)\s*[:：-]?\s*)([0-9٠-٩]{5,14})")
+_NUMERIC_ID_RE=re.compile(r"(?<![0-9٠-٩])([0-9٠-٩]{5,14})(?![0-9٠-٩])")
+_ARABIC_LABELS={
+    ExtractionKind.CASE_NUMBER: ("رقم القضية","القضية","رقم الدعوى","الدعوى"),
+    ExtractionKind.JUDGMENT_NUMBER: ("رقم الحكم","الحكم","رقم الصك","الصك"),
+}
+
+def _arabic_letters(s:str)->str:
+    # PDF text extractors may alter whitespace/directionality. Keep Arabic
+    # letters only so label matching is resilient without inventing values.
+    return "".join(ch for ch in s if "\u0600" <= ch <= "\u06ff")
+
+def _label_present(text:str,kind:ExtractionKind)->bool:
+    letters=_arabic_letters(text)
+    return any(_arabic_letters(label) in letters for label in _ARABIC_LABELS[kind])
 _DATE_RE=re.compile(r"(?<!\d)(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})(?!\d)")
 _AMOUNT_RE=re.compile(r"(?<!\d)(\d[\d,]*(?:\.\d{1,2})?)\s*(?:ريال|ر\.س)")
 _COURT_RE=re.compile(r"((?:المحكمة|محكمة)\s+[\u0600-\u06FF\s]{3,80})")
@@ -87,8 +101,21 @@ def extract_legal_candidates(page_number:int, spans:tuple[LegalSpan,...])->tuple
     out=[]
     for s in spans:
         txt=s.text
-        for m in _CASE_RE.finditer(txt): out.append(_candidate(ExtractionKind.CASE_NUMBER,m.group(1),page_number,s.span_id,.95))
-        for m in _JUDGMENT_RE.finditer(txt): out.append(_candidate(ExtractionKind.JUDGMENT_NUMBER,m.group(1),page_number,s.span_id,.92))
+        case_hits=list(_CASE_RE.finditer(txt))
+        judgment_hits=list(_JUDGMENT_RE.finditer(txt))
+        for m in case_hits: out.append(_candidate(ExtractionKind.CASE_NUMBER,m.group(1),page_number,s.span_id,.95))
+        for m in judgment_hits: out.append(_candidate(ExtractionKind.JUDGMENT_NUMBER,m.group(1),page_number,s.span_id,.92))
+        # Fallback for PDF extractors that disturb Arabic spacing/direction:
+        # only bind a numeric identifier when the corresponding Arabic label
+        # remains detectable in the same traceable span.
+        ids=[m.group(1) for m in _NUMERIC_ID_RE.finditer(txt)]
+        reserved={m.group(1) for m in case_hits+judgment_hits}
+        ids=[x for x in ids if x not in reserved]
+        if not case_hits and _label_present(txt,ExtractionKind.CASE_NUMBER) and ids:
+            out.append(_candidate(ExtractionKind.CASE_NUMBER,ids[0],page_number,s.span_id,.82))
+            ids=ids[1:]
+        if not judgment_hits and _label_present(txt,ExtractionKind.JUDGMENT_NUMBER) and ids:
+            out.append(_candidate(ExtractionKind.JUDGMENT_NUMBER,ids[0],page_number,s.span_id,.80))
         for m in _DATE_RE.finditer(txt): out.append(_candidate(ExtractionKind.DATE,m.group(1),page_number,s.span_id,.90))
         for m in _AMOUNT_RE.finditer(txt): out.append(_candidate(ExtractionKind.AMOUNT,m.group(1),page_number,s.span_id,.90))
         for m in _COURT_RE.finditer(txt): out.append(_candidate(ExtractionKind.COURT,m.group(1),page_number,s.span_id,.82))
