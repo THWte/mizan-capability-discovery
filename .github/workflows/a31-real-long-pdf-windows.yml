@@ -1,0 +1,46 @@
+name: A31 Real Long PDF Windows Gate
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/long_documents/generate_a31_pdf.py'
+      - 'benchmarks/long_documents/run_a31_real_pdf.py'
+      - 'tests/long_documents/test_a31_real_pdf.py'
+      - 'docs/architecture/A31_REAL_LONG_PDF_WINDOWS_GATE.md'
+      - '.github/workflows/a31-real-long-pdf-windows.yml'
+  workflow_dispatch:
+jobs:
+  windows-real-pdf:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install A31 dependencies
+        run: python -m pip install pytest pymupdf psutil
+      - name: Generate real 100-page Arabic PDFs
+        run: python benchmarks/long_documents/generate_a31_pdf.py
+      - name: Verify fixture PDFs exist
+        shell: pwsh
+        run: |
+          Get-Item benchmarks/long_documents/fixtures/*.pdf | Select-Object Name,Length
+      - name: A31 real PDF Windows benchmark
+        env:
+          PYTHONPATH: agents
+          MIZAN_A31_RSS_LIMIT_MB: '700'
+        run: python benchmarks/long_documents/run_a31_real_pdf.py
+      - name: A31 tests
+        env:
+          PYTHONPATH: agents
+        run: python -m pytest tests/long_documents -q
+      - name: Architecture regression
+        env:
+          PYTHONPATH: agents;contracts
+        run: python -m pytest tests/architecture tests/contracts -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a31-real-long-pdf-windows-results
+          path: |
+            benchmarks/long_documents/results/a31-results.json
+            benchmarks/long_documents/fixtures/*.pdf
