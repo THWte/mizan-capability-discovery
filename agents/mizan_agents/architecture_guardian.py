@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import dataclasses
 
-from .canonical_digest import canonical_digest
 from .errors import AgentContractError
 from .handoff_contract import Handoff
 
@@ -94,94 +93,118 @@ class GuardianVerdict:
         return "PARTIAL_PASS" if self.coverage == "PARTIAL" else "CHECKED_PASS"
 
 
+def run_guardian_review(handoff: Handoff) -> GuardianVerdict:
+    """The actual, real invariant-checking logic, as a free function.
+
+    Extracted out of ``ArchitectureGuardianAgent.review`` in v1.2 so that
+    ``approval_registry.GuardianApprovalRegistry.register_from_guardian``
+    can call this *exact* logic itself, live, rather than trusting a
+    verdict object a caller hands it. ``ArchitectureGuardianAgent.review``
+    below is now a thin wrapper around this function, preserving the v1/
+    v1.1 instance-method call shape (``guardian.review(handoff)``) that
+    existing callers and tests already use.
+    """
+    violated: list[int] = []
+    reasons: list[str] = []
+    payload = handoff.payload
+
+    checked = set(_ALWAYS_CHECKED_INVARIANTS)
+    if handoff.stage == "capability_evaluation":
+        checked.add(9)
+
+    locator = payload.get("stable_locator")
+    if locator is not None and is_external_engine_identifier is not None:
+        if is_external_engine_identifier(locator):
+            violated.append(3)
+            reasons.append(
+                f"payload.stable_locator {locator!r} matches an external engine "
+                "identifier pattern (Invariant 3: MIZAN Owns Identity and "
+                "Stable Locators)."
+            )
+
+    if payload.get("becomes_load_bearing") is True:
+        violated.append(10)
+        reasons.append(
+            "payload declares becomes_load_bearing=True: no engine may become "
+            "architecturally load-bearing for MIZAN (Invariant 10: No Engine "
+            "Becomes the System)."
+        )
+
+    if handoff.stage == "capability_evaluation" and 9 not in handoff.invariant_refs:
+        violated.append(9)
+        reasons.append(
+            "capability_evaluation handoffs must cite Invariant 9 (Capability "
+            "First, Technology Second) in invariant_refs."
+        )
+
+    if payload.get("retrieval_score") is not None and payload.get("treated_as_evidence") is True:
+        violated.append(4)
+        reasons.append(
+            "payload treats a retrieval_score as evidence authority "
+            "(Invariant 4: Retrieval != Evidence Authority)."
+        )
+
+    if payload.get("document_id") is not None and payload.get("source_artifact_id") is not None:
+        if payload["document_id"] == payload["source_artifact_id"]:
+            violated.append(5)
+            reasons.append(
+                "payload.document_id equals payload.source_artifact_id "
+                "(Invariant 5: Document Identity != File Identity)."
+            )
+
+    verdict = "FAIL" if violated else "PASS"
+    checked_invariants = tuple(sorted(checked))
+    unchecked_invariants = tuple(
+        sorted(set(ALL_INVARIANTS) - set(checked_invariants))
+    )
+    return GuardianVerdict(
+        handoff_id=handoff.handoff_id,
+        task_id=handoff.task_id,
+        verdict=verdict,
+        coverage="PARTIAL",
+        checked_invariants=checked_invariants,
+        violated_invariants=tuple(violated),
+        unchecked_invariants=unchecked_invariants,
+        reasons=tuple(reasons),
+    )
+
+
 class ArchitectureGuardianAgent:
+    """
+    v1.2 constructor dependency: ``approval_registry`` (optional for
+    callers that only ever use ``review()``, required for ``approve()``).
+    See ``approval_registry.GuardianApprovalRegistry`` for why a
+    ``GuardianApproval`` can no longer be minted without going through a
+    registry that independently re-runs the real review itself.
+    """
+
+    def __init__(self, approval_registry=None) -> None:
+        self.approval_registry = approval_registry
+
     def review(self, handoff: Handoff) -> GuardianVerdict:
-        violated: list[int] = []
-        reasons: list[str] = []
-        payload = handoff.payload
-
-        checked = set(_ALWAYS_CHECKED_INVARIANTS)
-        if handoff.stage == "capability_evaluation":
-            checked.add(9)
-
-        locator = payload.get("stable_locator")
-        if locator is not None and is_external_engine_identifier is not None:
-            if is_external_engine_identifier(locator):
-                violated.append(3)
-                reasons.append(
-                    f"payload.stable_locator {locator!r} matches an external engine "
-                    "identifier pattern (Invariant 3: MIZAN Owns Identity and "
-                    "Stable Locators)."
-                )
-
-        if payload.get("becomes_load_bearing") is True:
-            violated.append(10)
-            reasons.append(
-                "payload declares becomes_load_bearing=True: no engine may become "
-                "architecturally load-bearing for MIZAN (Invariant 10: No Engine "
-                "Becomes the System)."
-            )
-
-        if handoff.stage == "capability_evaluation" and 9 not in handoff.invariant_refs:
-            violated.append(9)
-            reasons.append(
-                "capability_evaluation handoffs must cite Invariant 9 (Capability "
-                "First, Technology Second) in invariant_refs."
-            )
-
-        if payload.get("retrieval_score") is not None and payload.get("treated_as_evidence") is True:
-            violated.append(4)
-            reasons.append(
-                "payload treats a retrieval_score as evidence authority "
-                "(Invariant 4: Retrieval != Evidence Authority)."
-            )
-
-        if payload.get("document_id") is not None and payload.get("source_artifact_id") is not None:
-            if payload["document_id"] == payload["source_artifact_id"]:
-                violated.append(5)
-                reasons.append(
-                    "payload.document_id equals payload.source_artifact_id "
-                    "(Invariant 5: Document Identity != File Identity)."
-                )
-
-        verdict = "FAIL" if violated else "PASS"
-        checked_invariants = tuple(sorted(checked))
-        unchecked_invariants = tuple(
-            sorted(set(ALL_INVARIANTS) - set(checked_invariants))
-        )
-        return GuardianVerdict(
-            handoff_id=handoff.handoff_id,
-            task_id=handoff.task_id,
-            verdict=verdict,
-            coverage="PARTIAL",
-            checked_invariants=checked_invariants,
-            violated_invariants=tuple(violated),
-            unchecked_invariants=unchecked_invariants,
-            reasons=tuple(reasons),
-        )
+        return run_guardian_review(handoff)
 
     def approve(self, handoff: Handoff, *, approval_id: str, issued_at: str):
-        """Review ``handoff`` and package the result into a
-        ``GuardianApproval`` bound to this exact payload via a canonical
-        digest (PART 8/9). This is the only code path in the agent society
-        meant to produce a ``GuardianApproval`` from a real review -- see
-        ``guardian_approval.py`` for why a hand-constructed one is inert
-        without a matching, live Handoff."""
-        from .registry import ARCHITECTURE_GUARDIAN
-        from .guardian_approval import GuardianApproval
+        """Request that ``handoff`` be reviewed and, if issued, recorded as
+        a trusted ``GuardianApproval`` in this agent's approval registry
+        (PART 8/9, hardened in v1.2: the registry -- not this method --
+        is what actually runs the review and mints the approval; this
+        method is only a thin, named entry point onto
+        ``GuardianApprovalRegistry.register_from_guardian``).
 
-        verdict = self.review(handoff)
-        digest = canonical_digest(handoff.payload)
-        return GuardianApproval(
-            approval_id=approval_id,
-            task_id=handoff.task_id,
-            reviewed_handoff_id=handoff.handoff_id,
-            reviewed_payload_digest=digest,
-            verdict=verdict.verdict,
-            coverage=verdict.coverage,
-            checked_invariants=verdict.checked_invariants,
-            violated_invariants=verdict.violated_invariants,
-            issued_by=ARCHITECTURE_GUARDIAN,
-            issued_at=issued_at,
+        Raises ``AgentContractError`` if this agent was constructed
+        without an ``approval_registry`` -- there is no fallback path that
+        produces a trusted approval without one.
+        """
+        if self.approval_registry is None:
+            raise AgentContractError(
+                "ArchitectureGuardianAgent.approve() requires this agent to "
+                "have been constructed with an approval_registry -- a "
+                "trusted GuardianApproval can only be minted by a registry "
+                "that independently re-runs the review itself (v1.2 "
+                "AUTHORITY RULE)."
+            )
+        return self.approval_registry.register_from_guardian(
+            handoff, approval_id=approval_id, issued_at=issued_at
         )
 

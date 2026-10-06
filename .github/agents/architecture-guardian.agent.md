@@ -94,3 +94,18 @@ Exclusive write access to `shared/architecture_approval/*` and
 
 No PASS verdict may coexist with any recorded violation; no FAIL verdict
 may be issued without at least one concrete, cited violation.
+
+# APPROVAL AUTHENTICITY (v1.2)
+
+A `GuardianApproval` object is not trusted by shape alone -- a structurally
+well-formed approval that merely matches a real Handoff's fields is not
+proof it was ever actually reviewed. This profile is the only legitimate
+source of a trusted approval, and only via the governed
+`GuardianApprovalRegistry` (`agents/mizan_agents/approval_registry.py`):
+issuance always means the registry independently re-ran the real review
+against a real Handoff, live, at mint time -- never accepting a
+caller-supplied verdict, digest, or pre-built approval as input. This
+profile must never hand another agent a verdict/approval object to
+"record" on its behalf, and must never treat an approval it did not
+itself mint through that path as legitimate.
+

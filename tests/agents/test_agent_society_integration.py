@@ -11,6 +11,7 @@ GuardianApproval, which v1.1 must now reject (AC-A10).
 """
 import pytest
 
+from mizan_agents.approval_registry import GuardianApprovalRegistry
 from mizan_agents.architecture_guardian import ArchitectureGuardianAgent
 from mizan_agents.conversation_intelligence import ConversationIntelligenceAgent
 from mizan_agents.errors import AgentContractError
@@ -25,10 +26,16 @@ from mizan_agents.registry import (
 )
 
 
+def _wired():
+    registry = GuardianApprovalRegistry()
+    guardian = ArchitectureGuardianAgent(approval_registry=registry)
+    orchestrator = MasterOrchestrator(registry)
+    return registry, guardian, orchestrator
+
+
 def test_clean_task_reaches_completion_through_full_chain():
-    orchestrator = MasterOrchestrator()
+    _, guardian, orchestrator = _wired()
     conv_agent = ConversationIntelligenceAgent()
-    guardian = ArchitectureGuardianAgent()
     auditor = GitPRAuditorAgent()
     memory = GovernedMemory()
 
@@ -90,12 +97,11 @@ def test_clean_task_reaches_completion_through_full_chain():
 
 
 def test_invariant_violating_task_is_blocked_from_completion():
-    """The deliberately-failing path: a handoff that disguises an engine-
+    """The deliberately-failing path: a handoff that     disguises an engine-
     native locator as a MIZAN stable locator must be rejected by the
     Guardian, and the orchestrator must refuse to complete the task -- with
     no override."""
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
 
     task_id = "TASK-200"
 
@@ -120,8 +126,7 @@ def test_invariant_violating_task_is_blocked_from_completion():
 
 
 def test_approval_for_one_task_does_not_leak_to_another_in_full_chain():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
 
     approved_task = "TASK-300"
     other_task = "TASK-301"
@@ -153,7 +158,7 @@ def test_forged_accepted_handoff_without_real_approval_cannot_complete():
     that would have accepted this: complete() now requires a
     GuardianApproval object, which this forged Handoff is not and cannot
     be converted into."""
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
 
     task_id = "TASK-400"
     forged_acceptance = Handoff(

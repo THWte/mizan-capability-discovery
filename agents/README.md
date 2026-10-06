@@ -14,9 +14,9 @@ network calls, zero git/GitHub operations.
 
 | Module | Role |
 |---|---|
-| `orchestrator.py` | Master Orchestrator -- routes Handoffs, gates task completion on a digest-bound `GuardianApproval` re-verified against the live routed Handoff (v1.1) |
+| `orchestrator.py` | Master Orchestrator -- routes Handoffs, gates task completion on a digest-bound `GuardianApproval` re-verified against the live routed Handoff (v1.1), and (v1.2) validated against the `GuardianApprovalRegistry`'s own issuance record, never the caller-supplied object's fields alone |
 | `conversation_intelligence.py` | Conversation Intelligence -- classifies user-directive `intent` and (v1.1) `claim_type`/`verification_required` (observation only) |
-| `architecture_guardian.py` | Architecture Guardian -- the only agent empowered to approve a Handoff against the Architectural Invariants; issues `GuardianVerdict`/`GuardianApproval` with explicit coverage (v1.1) |
+| `architecture_guardian.py` | Architecture Guardian -- the only agent empowered to approve a Handoff against the Architectural Invariants; issues `GuardianVerdict` with explicit coverage (v1.1); `approve()` delegates entirely to the `GuardianApprovalRegistry` (v1.2) rather than minting a `GuardianApproval` itself |
 | `capability_discovery.py` | Capability Discovery -- records REUSE/EXTEND/CONNECT/INSPIRE/REJECT/CONTINUE_BENCHMARKING decisions and a (v1.1) `lifecycle_status`, each required to point at a real evidence file already in this repo |
 | `evidence_provenance.py` | Evidence/Provenance -- wraps `contracts/mizan_contracts/provenance_v1.py`'s reverse-traceability check; produces Evidence, never Fact |
 | `qa_redteam.py` | QA/Red-Team -- deliberately attempts known-bad operations and reports whether they were actually rejected |
@@ -28,6 +28,7 @@ network calls, zero git/GitHub operations.
 | `epistemic.py` (v1.1) | Shared, recursive forbidden-promoted-fact-key validator used by both the Handoff Contract and Governed Memory |
 | `canonical_digest.py` (v1.1) | Deterministic canonical-JSON + SHA-256 digest helper underpinning `GuardianApproval` tamper resistance |
 | `guardian_approval.py` (v1.1) | `GuardianApproval` -- the sole trusted object binding an Architecture Guardian review to a specific reviewed Handoff by content digest |
+| `approval_registry.py` (v1.2) | `GuardianApprovalRegistry` -- the sole minting path for a trusted `GuardianApproval`; always re-runs the real review against a real Handoff live, closing the "field-correct but never actually reviewed" forgery gap left open by v1.1 |
 
 ## GitHub Custom Agent profiles (`.github/agents/`, v1.1)
 

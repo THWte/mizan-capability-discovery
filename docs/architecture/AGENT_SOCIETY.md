@@ -35,9 +35,9 @@ repeatedly, not just remembered.
 
 | Agent | Responsibility | What it is explicitly NOT allowed to do |
 |---|---|---|
-| **Master Orchestrator** | Routes Handoffs between agents; the only agent that may mark a task complete | (v1.1) Cannot mark a task complete without a digest-bound `GuardianApproval` whose `reviewed_handoff_id` resolves to a real, routed Handoff and whose stored digest still matches that handoff's *current* payload — no bypass path exists, and a bare "accepted" Handoff is no longer sufficient |
+| **Master Orchestrator** | Routes Handoffs between agents; the only agent that may mark a task complete | (v1.1) Cannot mark a task complete without a digest-bound `GuardianApproval` whose `reviewed_handoff_id` resolves to a real, routed Handoff and whose stored digest still matches that handoff's *current* payload — no bypass path exists, and a bare "accepted" Handoff is no longer sufficient. (v1.2) Additionally cannot trust a caller-supplied `GuardianApproval`'s fields in isolation — it must resolve to a matching record in the `GuardianApprovalRegistry`, i.e. an approval the registry itself minted by actually re-running the review |
 | **Conversation Intelligence** | Classifies a user directive's `intent` and (v1.1) `claim_type` (USER_DIRECTIVE/REPORTED_STATE/QUESTION/PROPOSAL/CORRECTION) | Cannot approve, reject, merge, or promote anything to Fact/Accepted Fact; a `REPORTED_STATE`/`CORRECTION` claim is structurally forced to carry `verification_required=true` |
-| **Architecture Guardian** | Reviews a Handoff's payload against specific, named Invariant violations; issues PASS/FAIL with explicit `checked_invariants`/`unchecked_invariants` and (v1.1) issues a digest-bound `GuardianApproval` via `approve()` | Cannot be skipped by the Orchestrator; cannot itself be overridden by any other agent; cannot claim `coverage=FULL` while any invariant is unchecked |
+| **Architecture Guardian** | Reviews a Handoff's payload against specific, named Invariant violations; issues PASS/FAIL with explicit `checked_invariants`/`unchecked_invariants` and (v1.1) issues a digest-bound `GuardianApproval` via `approve()` | Cannot be skipped by the Orchestrator; cannot itself be overridden by any other agent; cannot claim `coverage=FULL` while any invariant is unchecked. (v1.2) `approve()` no longer constructs a `GuardianApproval` itself — it only delegates to the `GuardianApprovalRegistry`, the sole component that mints a trusted approval, always by actually re-running the review live |
 | **Capability Discovery** | Records REUSE/EXTEND/CONNECT/INSPIRE/REJECT/(v1.1)CONTINUE_BENCHMARKING decisions, plus a (v1.1) `lifecycle_status` (DISCOVERED→EVALUATED→CANDIDATE→APPROVED/REJECTED) | Cannot record a decision without a real, existing evidence file in this repo; never runs an engine or benchmark itself; cannot reach `lifecycle_status=APPROVED` without a non-empty `human_approval_reference` |
 | **Evidence/Provenance** | Resolves an Observation's provenance chain to a SHA-256 Source Artifact | Produces only an `EvidenceRecord` — has no `status`, `to_fact()`, or `to_accepted_fact()` method; cannot promote further |
 | **QA/Red-Team** | Deliberately attempts known-bad operations (fact smuggling, memory overwrite, cross-namespace write, engine-id-as-locator) and reports whether they were rejected | Does not "fix" failures itself — only reports pass/fail of each attack |
@@ -228,3 +228,127 @@ docstrings for full detail)
 No change in this amendment modifies `contracts/mizan_contracts/`,
 `docs/architecture/ARCHITECTURAL_INVARIANTS.md`, or anything in
 `sandboxes/docling/` (PR #2) or `sandboxes/paddleocr/` (PR #5).
+
+---
+
+## Amendment v1.2 — Approval Authenticity (Guardian Approval Registry)
+
+**Status:** Amendment to v1.1, not a replacement of it. v1.1's digest
+binding closed "forge a Handoff" and "mutate the payload after review"
+(TOCTOU). It left one gap open: `canonical_digest()` is a pure, public
+function, not a secret. A caller able to read a routed Handoff's payload
+could compute its digest themselves and hand-construct a *structurally
+valid* `GuardianApproval` whose fields — `task_id`, `reviewed_handoff_id`,
+`reviewed_payload_digest`, `issued_by`, `verdict="PASS"` — happen to match
+that real Handoff, without ever calling
+`ArchitectureGuardianAgent.review()`/`approve()`. Every v1.1 check
+(task/handoff agreement, live digest re-check, verdict) passes for such a
+forgery, because it is checking "does this approval's shape match a real
+Handoff", not "was this approval ever actually produced by a real
+review".
+
+**This is not a cryptography problem.** The hardening directive for this
+amendment is explicit: no signatures, secrets, or tokens were added —
+Python has no true access control, and a secret with no trust root to
+anchor to would be security theater, not a real fix (the same point
+`guardian_approval.py`'s v1.1 docstring already makes). The actual fix is
+**structural**: a trusted `GuardianApproval` can now only ever be *minted*
+by a new component, `GuardianApprovalRegistry`
+(`agents/mizan_agents/approval_registry.py`), whose single write path,
+`register_from_guardian(handoff, *, approval_id, issued_at)`:
+
+1. requires a real `Handoff` object as input — never a pre-built verdict
+   or approval (rejects any non-`Handoff` input outright);
+2. always, unconditionally, re-runs the real review logic
+   (`run_guardian_review`, extracted from
+   `ArchitectureGuardianAgent.review` as a module-level free function so
+   the registry can call it directly) against that exact `Handoff`,
+   live, right now;
+3. independently recomputes the canonical digest from that same
+   `Handoff`'s current payload;
+4. only then constructs and stores the resulting `GuardianApproval`.
+
+There is **no parameter anywhere** on this write path through which a
+caller can hand over an already-decided outcome. `ArchitectureGuardianAgent`
+no longer constructs a `GuardianApproval` itself at all — its `approve()`
+method is now a thin, named entry point that delegates entirely to
+`approval_registry.register_from_guardian(...)`.
+
+### The authority check this amendment adds to completion
+
+`MasterOrchestrator.complete(task_id, approval)` no longer trusts the
+caller-supplied `approval` object's fields in isolation. It now calls
+`self._approval_registry.validate(approval)` first, which:
+
+- raises `AgentContractError` if `approval.approval_id` was never issued
+  through `register_from_guardian` (a forged-from-scratch approval, no
+  matter how well-formed, is never found — this is what closes M1/M3);
+- raises `AgentContractError` if any field on the supplied `approval`
+  (task_id, reviewed_handoff_id, digest, verdict, coverage,
+  checked/violated invariants) differs from the registry's own stored
+  record for that `approval_id` (verdict-tampering / relabeling onto a
+  different task or handoff — M2/M4/M5);
+- otherwise returns the registry's own trusted record, which is then used
+  for every subsequent check (`_find_routed_handoff`, live digest
+  re-check, `permits_completion`) in place of the caller-supplied object.
+
+The `approval.task_id != task_id` check on the raw, caller-supplied object
+remains the very first line of `complete()`, preserved deliberately so
+that passing `approval=None` still fails loudly with `AttributeError` (an
+existing, intentional behavior from v1.1), before `validate()`'s
+`isinstance` check would otherwise turn that into an `AgentContractError`.
+
+### Coverage semantics made explicit in code (not only prose)
+
+`approval_registry.py` defines `ARCHITECTURE_GATE_V1`,
+`FULL_ARCHITECTURE_CERTIFICATION`, and `COMPLETION_SCOPE =
+ARCHITECTURE_GATE_V1` as plain constants, so that no code path can claim
+the narrow, PARTIAL-coverage gate this registry vouches for is the same
+thing as full architecture certification. `GuardianVerdict.scoped_label`
+(`PARTIAL_PASS` vs `CHECKED_PASS`/`CHECKED_FAIL`, from v1.1) remains the
+human-facing expression of the same rule; this amendment adds a
+machine-checkable constant pair so the distinction cannot silently drift.
+
+### Replay policy (explicit, documented, tested)
+
+`GuardianApprovalRegistry.mark_consumed(approval_id, task_id)` records
+`(approval_id, task_id)` pairs. Replaying the *same* approval to
+re-complete the *same* task it already completed is an idempotent no-op —
+`complete()` does not raise, matching `is_complete()`'s existing
+set-membership idempotency. Replaying the same `approval_id` against a
+*different* task is already rejected earlier, by the task_id field
+comparison inside `validate()` (or the first-line check in `complete()`),
+before `mark_consumed` is ever reached — so cross-task replay is
+rejected, same-task replay is a harmless no-op, and neither is left as
+undefined behavior.
+
+### Honest limitation (M8)
+
+Python offers no true access control. Nothing stops code that imports
+`approval_registry.py` from calling `register_from_guardian` directly,
+bypassing `ArchitectureGuardianAgent.approve()` as a named entry point.
+This amendment does not claim otherwise. What it does claim, and what is
+tested, is narrower and still real: that direct call still only ever
+produces a record by *actually re-running the real review* against
+whatever `Handoff` is supplied — there is no parameter for injecting a
+pre-decided verdict, and no public setter anywhere on the registry that
+stores an arbitrary record without going through live review (see
+`test_m8_register_from_guardian_rejects_non_handoff_input` and
+`test_registry_has_no_public_setter_besides_register_from_guardian` in
+`tests/agents/test_hardening_v1_2.py`).
+
+### Adversarial coverage (M1–M10)
+
+See `tests/agents/test_hardening_v1_2.py` for the full, explicitly
+labeled catalogue: forged-approval-with-correct-digest (M1),
+verdict-tampering on a reused real `approval_id` (M2), never-registered
+but well-formed approval (M3), cross-task relabeling (M4), cross-handoff
+relabeling (M5), the real-approval control case that must still succeed
+(M6), duplicate `approval_id` rejection at registration (M7), direct
+registry-write-bypass honesty (M8), PARTIAL-cannot-become-FULL (M9), and
+replay policy (M10).
+
+No change in this amendment modifies `contracts/mizan_contracts/`,
+`docs/architecture/ARCHITECTURAL_INVARIANTS.md`, or anything in
+`sandboxes/docling/` (PR #2) or `sandboxes/paddleocr/` (PR #5).
+

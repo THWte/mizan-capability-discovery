@@ -1,14 +1,25 @@
-"""Tests for the MIZAN Agent Society v1 Master Orchestrator (v1.1, hardened
-approval-binding flow -- see orchestrator.py's module docstring for why the
-old "any accepted Handoff from architecture_guardian" check was replaced)."""
+"""Tests for the MIZAN Agent Society v1 Master Orchestrator (v1.2, hardened
+registry-backed approval authenticity flow -- see orchestrator.py's module
+docstring for the v1.1 -> v1.2 hardening history)."""
 import pytest
 
+from mizan_agents.approval_registry import GuardianApprovalRegistry
 from mizan_agents.architecture_guardian import ArchitectureGuardianAgent
 from mizan_agents.errors import AgentContractError
 from mizan_agents.guardian_approval import GuardianApproval
 from mizan_agents.handoff_contract import Handoff
 from mizan_agents.orchestrator import MasterOrchestrator
 from mizan_agents.registry import ARCHITECTURE_GUARDIAN, CONVERSATION_INTELLIGENCE
+
+
+def _wired():
+    """v1.2: Guardian and Orchestrator must share the same
+    GuardianApprovalRegistry instance -- that shared registry is what lets
+    the Orchestrator trust only approvals the Guardian actually minted."""
+    registry = GuardianApprovalRegistry()
+    guardian = ArchitectureGuardianAgent(approval_registry=registry)
+    orchestrator = MasterOrchestrator(registry)
+    return registry, guardian, orchestrator
 
 
 def _handoff(**overrides):
@@ -26,14 +37,14 @@ def _handoff(**overrides):
 
 
 def test_route_appends_to_history():
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
     handoff = _handoff()
     orchestrator.route(handoff)
     assert orchestrator.history_for_task("T-1") == (handoff,)
 
 
 def test_complete_requires_an_approval_argument():
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
     orchestrator.route(_handoff())
     with pytest.raises(TypeError):
         # complete() now requires an approval argument -- there is no
@@ -43,8 +54,7 @@ def test_complete_requires_an_approval_argument():
 
 
 def test_complete_blocked_by_guardian_fail_verdict():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff(payload={"becomes_load_bearing": True})
     orchestrator.route(handoff)
     approval = guardian.approve(handoff, approval_id="GA-1", issued_at="t2")
@@ -55,8 +65,7 @@ def test_complete_blocked_by_guardian_fail_verdict():
 
 
 def test_complete_succeeds_after_real_guardian_approval():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff()
     orchestrator.route(handoff)
     approval = guardian.approve(handoff, approval_id="GA-2", issued_at="t2")
@@ -66,8 +75,7 @@ def test_complete_succeeds_after_real_guardian_approval():
 
 
 def test_approval_for_one_task_does_not_complete_another():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff_t1 = _handoff(handoff_id="HO-T1", task_id="T-1")
     orchestrator.route(handoff_t1)
     approval = guardian.approve(handoff_t1, approval_id="GA-3", issued_at="t2")
@@ -80,8 +88,7 @@ def test_approval_rejected_if_reviewed_handoff_never_routed():
     """A GuardianApproval referencing a handoff_id that was never routed
     through this Orchestrator (e.g. reviewed in isolation, or forged)
     cannot complete anything."""
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff()
     # Deliberately not routed.
     approval = guardian.approve(handoff, approval_id="GA-4", issued_at="t2")
@@ -93,8 +100,7 @@ def test_approval_rejected_if_payload_mutated_after_review():
     """PART 12: mutating a nested, mutable payload dict after Guardian
     review -- even though the Handoff dataclass itself is frozen -- must be
     caught by the digest re-check at completion time."""
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff(payload={"result": {"value": "safe"}})
     orchestrator.route(handoff)
     approval = guardian.approve(handoff, approval_id="GA-5", issued_at="t2")
@@ -111,9 +117,10 @@ def test_approval_rejected_if_payload_mutated_after_review():
 def test_hand_constructed_approval_without_matching_handoff_is_rejected():
     """A caller who hand-constructs a syntactically valid GuardianApproval
     (bypassing ArchitectureGuardianAgent.approve() entirely) still cannot
-    complete a task unless a matching, live Handoff with the same digest
-    was actually routed."""
-    orchestrator = MasterOrchestrator()
+    complete a task unless that approval_id was actually minted by the
+    registry (v1.2) -- which this one, hand-constructed from scratch,
+    never was."""
+    _, _, orchestrator = _wired()
     forged = GuardianApproval(
         approval_id="GA-FORGED",
         task_id="T-1",

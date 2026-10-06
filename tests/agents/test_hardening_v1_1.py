@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 
+from mizan_agents.approval_registry import GuardianApprovalRegistry
 from mizan_agents.architecture_guardian import ArchitectureGuardianAgent, GuardianVerdict
 from mizan_agents.capability_discovery import CapabilityDiscoveryAgent
 from mizan_agents.canonical_digest import canonical_digest
@@ -30,6 +31,15 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _REAL_EVIDENCE_DOC = "docs/architecture/ARCHITECTURAL_INVARIANTS.md"
+
+
+def _wired():
+    """v1.2: Guardian and Orchestrator must share one
+    GuardianApprovalRegistry instance."""
+    registry = GuardianApprovalRegistry()
+    guardian = ArchitectureGuardianAgent(approval_registry=registry)
+    orchestrator = MasterOrchestrator(registry)
+    return registry, guardian, orchestrator
 
 
 def _handoff(**overrides):
@@ -87,7 +97,7 @@ def test_case_c_nested_fact_in_governed_memory_rejected():
 
 
 def test_case_d_forged_accepted_handoff_cannot_complete():
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
     task_id = "T-FORGE"
     forged = Handoff(
         handoff_id="HO-FORGE",
@@ -111,8 +121,7 @@ def test_case_d_forged_accepted_handoff_cannot_complete():
 
 
 def test_case_e_approval_digest_cannot_be_relabeled_onto_another_handoff():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
 
     handoff_1 = _handoff(handoff_id="HO-1", task_id="T-E", payload={"value": "clean"})
     handoff_2 = _handoff(
@@ -146,8 +155,7 @@ def test_case_e_approval_digest_cannot_be_relabeled_onto_another_handoff():
 
 
 def test_case_f_payload_mutation_after_review_blocks_completion():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff(task_id="T-F", payload={"nested": {"items": [1, 2, 3]}})
     orchestrator.route(handoff)
     approval = guardian.approve(handoff, approval_id="GA-F", issued_at="t2")
@@ -161,8 +169,7 @@ def test_case_f_payload_mutation_after_review_blocks_completion():
 
 
 def test_case_g_task_id_mismatch_blocks_completion():
-    orchestrator = MasterOrchestrator()
-    guardian = ArchitectureGuardianAgent()
+    _, guardian, orchestrator = _wired()
     handoff = _handoff(task_id="T-G1")
     orchestrator.route(handoff)
     approval = guardian.approve(handoff, approval_id="GA-G", issued_at="t2")
@@ -174,7 +181,7 @@ def test_case_g_task_id_mismatch_blocks_completion():
 
 
 def test_case_h_partial_coverage_never_reported_as_full():
-    guardian = ArchitectureGuardianAgent()
+    guardian = ArchitectureGuardianAgent(approval_registry=GuardianApprovalRegistry())
     handoff = _handoff(task_id="T-H")
     approval = guardian.approve(handoff, approval_id="GA-H", issued_at="t2")
     assert approval.coverage == "PARTIAL"
@@ -268,7 +275,7 @@ def test_case_k_approved_lifecycle_requires_explicit_human_reference():
 
 
 def test_case_l_master_cannot_complete_without_any_approval_argument():
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
     orchestrator.route(_handoff(task_id="T-L"))
     with pytest.raises(TypeError):
         orchestrator.complete("T-L")
@@ -276,7 +283,7 @@ def test_case_l_master_cannot_complete_without_any_approval_argument():
 
 
 def test_case_l_master_cannot_complete_with_none_approval():
-    orchestrator = MasterOrchestrator()
+    _, _, orchestrator = _wired()
     orchestrator.route(_handoff(task_id="T-L2"))
     with pytest.raises(AttributeError):
         # Passing None instead of a real GuardianApproval must fail loudly
