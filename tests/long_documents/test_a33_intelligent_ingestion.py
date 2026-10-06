@@ -3,6 +3,7 @@ import fitz
 from mizan_agents.intelligent_document_ingestion import *
 
 def make_pdf(path:Path):
+    fontfile=Path("C:/Windows/Fonts/arial.ttf")
     doc=fitz.open()
     p=doc.new_page(); p.insert_text((72,72),"المحكمة الجزائية\nرقم القضية 4870236421\nرقم الحكم 123456\nالتاريخ 18-04-1448\nالمبلغ 12500 ريال")
     p=doc.new_page(); p.insert_text((72,72),"الطلبات\nطلب المدعي الحكم له بالتعويض")
