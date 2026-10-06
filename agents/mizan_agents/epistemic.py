@@ -97,6 +97,10 @@ def validate_no_promoted_epistemic_state(value: object, *, _path: str = "$") -> 
                     "CandidateFact, at any nesting depth (Architectural "
                     "Invariant 2)."
                 )
+            if isinstance(key, str) and key in ("state", "epistemic_state", "status") and isinstance(nested, str) and nested.upper() in PROMOTED_EPISTEMIC_STATES:
+                raise AgentContractError(
+                    f"Forbidden promoted epistemic-state value {nested!r} found at {_path}.{key}."
+                )
             validate_no_promoted_epistemic_state(nested, _path=f"{_path}.{key}")
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
