@@ -1,0 +1,31 @@
+name: A22-A25 Internal RC Runtime Evidence
+on:
+  pull_request:
+    paths:
+      - "agents/mizan_agents/runtime_evidence_collector.py"
+      - "agents/mizan_agents/internal_rc.py"
+      - "agents/mizan_agents/local_integration_contract.py"
+      - "agents/mizan_agents/runtime_evidence_verifier.py"
+      - "scripts/dev/collect-runtime-evidence.ps1"
+      - "tests/internal_rc/**"
+      - ".github/workflows/a22-a25-internal-rc.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install pytest
+      - name: Internal RC evidence adversarial tests
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/internal_rc -q
+      - name: Release governance regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/release tests/production -q
+      - name: Architecture regression
+        env: {PYTHONPATH: "agents:contracts"}
+        run: python -m pytest tests/architecture -q
