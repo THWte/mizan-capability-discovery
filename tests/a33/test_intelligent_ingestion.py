@@ -1,6 +1,7 @@
 from pathlib import Path
 import fitz
 from mizan_agents.intelligent_document_ingestion import *
+from mizan_agents.intelligent_document_ingestion import _label_present
 
 def make_pdf(path:Path):
     # Create a PDF from HTML through Chromium in the workflow before this test
