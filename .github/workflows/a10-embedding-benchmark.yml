@@ -1,0 +1,44 @@
+name: A10 Arabic Legal Embedding Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "benchmarks/embeddings/**"
+      - "tests/benchmarks/test_a10_embeddings.py"
+      - ".github/workflows/a10-embedding-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -r benchmarks/embeddings/requirements.txt pytest
+      - name: Dataset and metric tests
+        run: python -m pytest tests/benchmarks/test_a10_embeddings.py -q
+      - name: Run A10
+        env:
+          MIZAN_A10_OUT: benchmarks/embeddings/results/a10-results.json
+          HF_HUB_DISABLE_TELEMETRY: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: python benchmarks/embeddings/run_a10.py
+      - name: System snapshot
+        if: always()
+        run: |
+          mkdir -p benchmarks/embeddings/results
+          free -m > benchmarks/embeddings/results/memory.txt || true
+          lscpu > benchmarks/embeddings/results/cpu.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a10-arabic-legal-embedding-results
+          path: benchmarks/embeddings/results/
+          if-no-files-found: error
