@@ -1,10 +1,13 @@
 import math
 import importlib.util
+import sys
 from pathlib import Path
 
 P=Path(__file__).resolve().parents[2]/"benchmarks"/"retrieval"/"run_benchmark.py"
 spec=importlib.util.spec_from_file_location("bench",P)
-b=importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+b=importlib.util.module_from_spec(spec)
+sys.modules[spec.name]=b
+spec.loader.exec_module(b)
 
 def test_generation_is_deterministic_and_has_1000_queries(monkeypatch):
     monkeypatch.setattr(b,"N_DOCS",500)
