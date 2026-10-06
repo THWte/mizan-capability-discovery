@@ -1,0 +1,40 @@
+name: A27-A30 Long Arabic Legal Documents
+on:
+  pull_request:
+    paths:
+      - 'agents/mizan_agents/long_document_stream.py'
+      - 'agents/mizan_agents/selective_ocr.py'
+      - 'agents/mizan_agents/legal_segmentation.py'
+      - 'benchmarks/long_documents/**'
+      - 'tests/long_documents/**'
+      - 'docs/architecture/LONG_DOCUMENT_INTELLIGENCE_V1.md'
+      - '.github/workflows/a27-a30-long-documents.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest
+      - name: A27-A29 adversarial tests
+        env:
+          PYTHONPATH: agents
+        run: pytest tests/long_documents -q
+      - name: A30 million-word synthetic stress benchmark
+        env:
+          PYTHONPATH: agents
+          MIZAN_A30_PAGES: '1000'
+          MIZAN_A30_WORDS_PER_PAGE: '1000'
+        run: python benchmarks/long_documents/run_a30.py
+      - name: Architecture regression
+        env:
+          PYTHONPATH: agents:contracts
+        run: pytest tests/architecture tests/contracts -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a30-long-document-results
+          path: benchmarks/long_documents/results/a30-results.json
