@@ -10,7 +10,7 @@ import hashlib
 from enum import Enum
 from typing import Iterable
 
-from contracts.mizan_contracts.canonical_v1 import RawObservation
+from mizan_contracts.canonical_v1 import RawObservation
 
 
 class EvidenceResolutionError(ValueError):
