@@ -77,3 +77,14 @@ def test_same_text_at_different_locators_is_not_corroborated():
 def test_no_fact_promotion_surface():
     r=run_canonical_document_flow(source_identity=source(), document_identity=document(), source_record=source_record(), profile=scanned(), observations=[envelope("o1","نص","paddleocr")])
     assert not hasattr(r,"fact") and not hasattr(r,"accepted_fact") and not hasattr(r.evidence_resolution,"verified")
+
+def test_engine_alias_cannot_impersonate_routed_provider():
+    with pytest.raises(CanonicalFlowError):
+        run_canonical_document_flow(source_identity=source(), document_identity=document(), source_record=source_record(), profile=scanned(), observations=[envelope("o1","نص","PaddleOCR-v3")])
+
+def test_observation_producer_must_match_provenance_engine():
+    stable=loc()
+    o=RawObservation(stable_locator=stable, raw_text="نص", normalized_text=normalize_text("نص"), produced_by="paddleocr")
+    p=ProvenanceRecord(source_artifact_id="SRC-1", source_sha256=SHA, document_id="DOC-1", document_version_id="DOCV-1", stable_locator=stable, engine="docling", engine_version="1", settings={}, extraction_timestamp="2026-10-06T00:00:00Z", extraction_method="test")
+    with pytest.raises(CanonicalFlowError):
+        ObservationEnvelope(observation_id="o1", observation=o, provenance=p)
