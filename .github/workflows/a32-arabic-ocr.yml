@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install benchmark dependencies
-        run: python -m pip install pytest pillow psutil paddleocr==3.3.3 paddlepaddle==3.2.2
+        run: python -m pip install pytest pillow psutil arabic-reshaper python-bidi paddleocr==3.3.3 paddlepaddle==3.2.2
       - name: Generate Arabic OCR fixtures
         run: python benchmarks/ocr_a32/generate_fixtures.py
       - name: Run A32 real PaddleOCR benchmark
