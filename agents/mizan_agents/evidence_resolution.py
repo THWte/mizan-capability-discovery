@@ -97,6 +97,16 @@ def resolve_observations(
             requires_human_review=False,
         )
 
+    locators = {r.stable_locator for r in refs}
+    if len(locators) > 1:
+        return EvidenceResolutionRecord(
+            resolution_id=rid,
+            state=EvidenceState.REVIEW_REQUIRED,
+            observations=refs,
+            reason_codes=("STABLE_LOCATOR_MISMATCH",),
+            requires_human_review=True,
+        )
+
     values = {r.normalized_text for r in refs}
     producers = {r.produced_by for r in refs}
     if len(values) == 1 and len(producers) >= 2:
