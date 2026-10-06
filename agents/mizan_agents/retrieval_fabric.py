@@ -14,8 +14,8 @@ _ID_RE=re.compile(r"\b\d{7,14}\b")
 _DATE_RE=re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b")
 _NEG=("لا","لم","لن","ليس","غير","دون","عدم")
 _FINAL=("نهائي","القطعية","مكتسب")
-_APPEAL_REVERSE=("ألغت","نقض","إلغاء","نقضت","الغى")
-_APPEAL_AFFIRM=("أيدت","تأييد","أبقت","أيده","ايد")
+_APPEAL_REVERSE=("الغت","نقض","الغاء","نقضت","الغي")
+_APPEAL_AFFIRM=("ايدت","تاييد","ابقت","ايده","ايد")
 
 class RetrievalError(ValueError): pass
 
@@ -85,8 +85,8 @@ def structured_score(query:str,text:str)->float:
     qneg=any(re.search(rf"\b{re.escape(x)}\b",q) for x in _NEG)
     dneg=any(re.search(rf"\b{re.escape(x)}\b",d) for x in _NEG)
     if qneg: score += 0.75 if dneg else -0.75
-    if any(x in q for x in _APPEAL_REVERSE): score += 1.5 if any(x in d for x in _APPEAL_REVERSE) else -1.5
-    if any(x in q for x in _APPEAL_AFFIRM): score += 1.5 if any(x in d for x in _APPEAL_AFFIRM) else -1.5
+    if any(x in q for x in _APPEAL_REVERSE): score += 2.5 if any(x in d for x in _APPEAL_REVERSE) else -2.5
+    if any(x in q for x in _APPEAL_AFFIRM): score += 2.5 if any(x in d for x in _APPEAL_AFFIRM) else -2.5
     if any(x in q for x in _FINAL): score += 1.0 if any(x in d for x in _FINAL) else -1.0
     return score
 
