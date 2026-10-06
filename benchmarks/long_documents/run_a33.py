@@ -7,9 +7,10 @@ from mizan_agents.intelligent_document_ingestion import ingest_pdf,ExtractionKin
 PAGES=24
 
 def build(path):
+    fontfile=Path("C:/Windows/Fonts/arial.ttf")
     doc=fitz.open()
     for i in range(1,PAGES+1):
-        p=doc.new_page()
+        p=doc.new_page(); p.insert_font(fontname="AR",fontfile=str(fontfile))
         if i==1:
             text="المحكمة الجزائية بمكة المكرمة\nالدائرة السادسة\nرقم القضية 4870236421\nرقم الحكم 123456789\nالتاريخ 18-04-1448"
         elif i==2:
@@ -20,7 +21,7 @@ def build(path):
             text="المنطوق\nحكمت الدائرة بما هو مبين في هذا المثال الاصطناعي"
         else:
             text=("الوقائع\n"+"هذه صفحة اصطناعية لاختبار الاستخراج المباشر من الصك الطويل. "*30)
-        p.insert_textbox(fitz.Rect(50,50,545,790),text,fontsize=11)
+        p.insert_textbox(fitz.Rect(50,50,545,790),text,fontsize=11,fontname="AR")
     doc.save(path);doc.close()
 
 def main():
