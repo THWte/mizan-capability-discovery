@@ -1,20 +1,27 @@
-# ADR-0009: A10 Arabic/Legal Embedding Benchmark v1
+# ADR-0009: A10 Measured Arabic/Legal Embedding Decision
 
-**Status:** Proposed
-**Base:** main@e6628d2b7b6c01c6cb87714367689adc5e18caf8
+**Status:** Accepted as baseline-candidate decision  
+**Evidence:** GitHub Actions run 37518446419, artifact 11437857962.
 
 ## Decision
 
-Benchmark three open local multilingual embedding candidates on one synthetic Arabic legal-style corpus before selecting the default MIZAN embedding provider.
+Select **BAAI/bge-m3** as MIZAN's preferred **synthetic-baseline embedding candidate (REUSE / EXTEND)**.
 
-The benchmark isolates embedding retrieval quality from the A9 vector-store decision by ranking in memory over the same document set.
+Do not label it production-approved. The benchmark used synthetic Arabic legal-style passages, not real Saudi case files.
 
-## Candidates
+## Evidence
 
-- intfloat/multilingual-e5-base
-- BAAI/bge-m3
-- sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+On the strengthened 50-document / 32-query adversarial set:
+- BGE-M3 Top-1: 0.9375; MRR: 0.96875; nDCG@5: 0.97310.
+- multilingual-e5-base Top-1: 0.84375; MRR: 0.91667.
+- multilingual-MPNet Top-1: 0.84375; MRR: 0.90625.
+- All three reached Recall@5 = 1.0.
+- BGE-M3 was slower on CPU, but materially stronger on legal contrast classes.
 
-## Boundary
+## Failure evidence
 
-Synthetic benchmark success is not production approval. Real/anonymized Golden Dataset validation remains a mandatory later gate. Embeddings cannot create evidence authority or truth.
+BGE-M3 still confused appellate outcome language in two queries. Dense similarity therefore must not be the only retrieval signal for legal outcome, negation, exact numeric, date, or identifier-sensitive retrieval.
+
+## Architectural consequence
+
+A11 Retrieval Fabric should use pgvector + BGE-M3 as baseline candidates while adding lexical/structured exact-match guards. Retrieval rank is never Evidence Authority and cannot create or upgrade facts.
