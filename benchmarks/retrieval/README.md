@@ -37,3 +37,6 @@ Retrieval answers only **what should be inspected**. A high retrieval score does
 - a real MIZAN Golden Dataset
 
 Those require A10 / Golden Dataset work. This v1 intentionally isolates storage/retrieval behavior before model quality is introduced.
+
+
+Benchmark execution trigger: run-2026-10-06-01.
