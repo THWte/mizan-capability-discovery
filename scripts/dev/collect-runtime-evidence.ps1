@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 if (-not $CommitSha) {
   try { $CommitSha = (git rev-parse HEAD).Trim() } catch { throw "CommitSha required when git is unavailable" }
 }
-$env:PYTHONPATH = "agents;contracts"
+$env:PYTHONPATH = "agents;contracts"\n$env:MIZAN_BASE_URL = $BaseUrl\n$env:MIZAN_COMMIT_SHA = $CommitSha\n$env:MIZAN_EVIDENCE_OUTPUT = $Output
 @'
 import os, sys
 from mizan_agents.runtime_evidence_collector import EndpointProbe, collect_http_runtime_evidence, write_manifest
