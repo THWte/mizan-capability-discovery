@@ -86,3 +86,9 @@ def test_normalized_quote_is_derived_from_raw_quote_not_raw_offsets_into_nfkc_te
     c=create_citation(observation_id="OBS-U",observation=o,provenance=p,source_identity=s,source_record=sr,document_identity=d,document_version=dv,page=pg,block=b,span=sp)
     assert c.quoted_raw_text=="\ufb03"
     assert c.quoted_normalized_text=="ffi"
+
+
+def test_nfkc_quote_offsets_are_applied_to_raw_text_before_normalization():
+    # Circled digit expands under NFKC; slicing normalized_text with raw offsets is unsafe.
+    raw="① أ"
+    assert normalize_text(raw[0:1]) == "1"
