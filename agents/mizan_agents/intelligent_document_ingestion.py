@@ -134,6 +134,12 @@ def ingest_pdf(
 
     def processor(p:PageInput)->PageResult:
         decision=route_page(p)
+        # A33 direct-text-first override: a real PDF text layer is authoritative
+        # for extraction routing even when the page is short. A28's <40-char
+        # ambiguity heuristic is useful for generic routing, but must not cause
+        # needless OCR of headings/short legal pages.
+        if p.has_text_layer and p.raw_text.strip() and decision.route is PageRoute.TEXT_PLUS_OCR_COMPARE:
+            decision=dataclasses.replace(decision,route=PageRoute.TEXT_ONLY,reason_codes=("TEXT_LAYER_PRESENT","A33_DIRECT_TEXT_FIRST"))
         text=p.raw_text
         if decision.route in (PageRoute.OCR_ONLY,PageRoute.TEXT_PLUS_OCR_COMPARE,PageRoute.TABLE_SPECIALIST):
             ocr_pages.append(p.page_number)
