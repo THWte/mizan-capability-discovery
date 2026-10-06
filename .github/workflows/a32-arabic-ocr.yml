@@ -1,0 +1,35 @@
+name: A32 Arabic OCR Accuracy and Recovery Gate
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/ocr_a32/**'
+      - 'tests/benchmarks/test_a32_ocr_metrics.py'
+      - 'docs/architecture/A32_ARABIC_OCR_ACCURACY_RECOVERY.md'
+      - '.github/workflows/a32-arabic-ocr.yml'
+  workflow_dispatch:
+jobs:
+  paddleocr-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DISABLE_MODEL_SOURCE_CHECK: 'True'
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install benchmark dependencies
+        run: python -m pip install pytest pillow psutil paddleocr==3.3.3 paddlepaddle==3.2.2
+      - name: Generate Arabic OCR fixtures
+        run: python benchmarks/ocr_a32/generate_fixtures.py
+      - name: Run A32 real PaddleOCR benchmark
+        run: python benchmarks/ocr_a32/run_a32.py
+      - name: Verify A32 metric/recovery tests
+        run: python -m pytest tests/benchmarks/test_a32_ocr_metrics.py -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a32-arabic-ocr-results
+          path: |
+            benchmarks/ocr_a32/results/a32-results.json
+            benchmarks/ocr_a32/fixtures/*.png
