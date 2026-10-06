@@ -26,3 +26,7 @@ def test_quality_classification_can_fail_without_harness_failure():
       {"name":"low_quality","expected_failure":False,"cer":0.80,"wer":0.95,"critical_recall":0.0},
     ]
     assert m.classify(rows)=="FAIL"
+
+
+def test_critical_token_detected_when_ocr_attaches_arabic_text():
+    assert m.critical_recall("رقم المرجع 778899","رقمالمرجع778899")==1
