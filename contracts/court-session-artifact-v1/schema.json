@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/THWte/mizan-capability-discovery/contracts/court-session-artifact-v1/schema.json",
+  "title": "MIZAN Court Session Artifact v1",
+  "description": "Append-only artifact produced by a MIZAN court-session step (real or simulated). Artifacts record observations and outputs with provenance; they never self-promote into Accepted Fact. Promotion to ACCEPTED_FACT happens only in the governed private runtime through explicit owner review, and is therefore not a state of this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id",
+    "session_id",
+    "step_index",
+    "delegation_mode",
+    "epistemic_class",
+    "sha256",
+    "created_at",
+    "actor",
+    "content_ref"
+  ],
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^ART-[0-9]{6}$",
+      "description": "MIZAN-owned stable locator for this artifact. Assigned by MIZAN, never by an engine."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 8,
+      "description": "Identifier of the court session this artifact belongs to."
+    },
+    "step_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Ordered position of the producing step within the session."
+    },
+    "delegation_mode": {
+      "type": "string",
+      "enum": ["MIZAN_HANDLES", "TOGETHER", "OWNER_HANDLES"],
+      "description": "MIZAN_HANDLES: MIZAN performs the step autonomously under governance. TOGETHER: shared MIZAN/owner execution. OWNER_HANDLES: owner performs the step; MIZAN records only."
+    },
+    "epistemic_class": {
+      "type": "string",
+      "enum": [
+        "SIMULATION_OUTPUT",
+        "OBSERVATION",
+        "EVIDENCE_CANDIDATE",
+        "VERIFIED_EVIDENCE",
+        "REJECTED"
+      ],
+      "description": "Epistemic state of the artifact content. SIMULATION_OUTPUT marks courtroom-simulation content and must never be read as case fact. ACCEPTED_FACT is deliberately not a state of this schema: acceptance is a governed runtime decision, not an artifact property."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the canonical artifact content bytes."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": "string",
+      "description": "Producing component or role, e.g. mizan-agent:clerk, owner, engine:paddleocr."
+    },
+    "engine": {
+      "type": "string",
+      "description": "Engine that produced the content, when applicable. Engine identity never replaces the MIZAN artifact identity."
+    },
+    "content_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable locator of the stored content (MIZAN-owned path/URI)."
+    },
+    "prior_artifact_id": {
+      "type": ["string", "null"],
+      "description": "Previous artifact in the append-only chain for this session, or null for the first artifact."
+    },
+    "source_document_locator": {
+      "type": ["string", "null"],
+      "description": "MIZAN stable locator of the source document span this artifact derives from, when applicable."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source_sha256": { "type": ["string", "null"] },
+        "extraction_span_id": { "type": ["string", "null"] },
+        "page_number": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "description": "Traceability back to a source artifact and SHA-256."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-text note. Must not contain real case party identities."
+    }
+  }
+}
