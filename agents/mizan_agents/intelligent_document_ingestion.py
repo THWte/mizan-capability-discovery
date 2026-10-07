@@ -106,6 +106,51 @@ def _candidate(kind, value, page_number, span_id, confidence):
 
 _CURRENCY_RE=re.compile(r"(?:ر\s*ي\s*ا\s*ل|ر\s*\.?\s*س)",re.I)
 _AMOUNT_TOKEN_RE=re.compile(r"(?<![0-9٠-٩])([0-9٠-٩][0-9٠-٩,٬]*(?:[.٫][0-9٠-٩]{1,2})?)(?![0-9٠-٩])")
+# Canonical Arabic legal amount-introducing labels. Used as a fallback binding
+# when the currency word itself is destroyed by a broken PDF text layer
+# (e.g. Chromium headless reorders "ريال" into "لاير"). Binding is strictly
+# label-gated: a bare number is never promoted to an amount candidate.
+_AMOUNT_LABELS=("مبلغ","مقدار")
+_AMOUNT_LABEL_WINDOW_LEFT=64
+_AMOUNT_LABEL_WINDOW_RIGHT=24
+
+def _resolve_label_amounts(page_number:int,spans:tuple)->tuple[ExtractedCandidate,...]:
+    """Bind a number to an explicit amount label when the currency word is
+    unreadable. Windows are asymmetric because the label usually introduces the
+    figure ("بمبلغ 12500 ريال") even when extraction reorders the line. The
+    same rejections as the currency resolver apply: date-like or
+    identifier-like tokens are never treated as amounts."""
+    if not spans: return ()
+    page_text="\n".join(s.text for s in spans)
+    out=[]
+    seen=set()
+    for lbl in re.finditer("|".join(re.escape(w) for w in _AMOUNT_LABELS),page_text):
+        left_start=max(0,lbl.start()-_AMOUNT_LABEL_WINDOW_LEFT)
+        right_end=min(len(page_text),lbl.end()+_AMOUNT_LABEL_WINDOW_RIGHT)
+        candidates=[]
+        left_nums=list(_AMOUNT_TOKEN_RE.finditer(page_text[left_start:lbl.start()]))
+        if left_nums:
+            m=left_nums[-1]
+            candidates.append((m.group(1),left_start+m.start(1),lbl.start()-(left_start+m.end(1))))
+        right_nums=list(_AMOUNT_TOKEN_RE.finditer(page_text[lbl.end():right_end]))
+        if right_nums:
+            m=right_nums[0]
+            candidates.append((m.group(1),lbl.end()+m.start(1),m.start(1)))
+        if not candidates: continue
+        value,absolute,_distance=min(candidates,key=lambda x:x[2])
+        digits=re.sub(r"[^0-9٠-٩]","",value)
+        if "-" in value or "/" in value or len(digits)>12: continue
+        # Reject numeric fragments that are glued to a date-like sequence
+        # ("18-04-1448" must not yield "1448" as an amount).
+        _before=page_text[absolute-1] if absolute>0 else ""
+        _after=page_text[absolute+len(value)] if absolute+len(value)<len(page_text) else ""
+        if (_before and _before in "-/") or (_after and _after in "-/"): continue
+        owner=next((s for s in spans if s.start_offset<=absolute<s.end_offset),spans[0])
+        key=(value,owner.span_id)
+        if key not in seen:
+            out.append(_candidate(ExtractionKind.AMOUNT,value,page_number,owner.span_id,.85))
+            seen.add(key)
+    return tuple(out)
 
 def _resolve_page_amounts(page_number:int,spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
     """Resolve amounts across span/line boundaries without accepting bare numbers."""
@@ -141,7 +186,7 @@ def _resolve_page_amounts(page_number:int,spans:tuple[LegalSpan,...])->tuple[Ext
     return tuple(out)
 
 def extract_legal_candidates(page_number:int, spans:tuple[LegalSpan,...])->tuple[ExtractedCandidate,...]:
-    out=list(_resolve_page_amounts(page_number,spans))
+    out=list(_resolve_page_amounts(page_number,spans))+list(_resolve_label_amounts(page_number,spans))
     for s in spans:
         txt=s.text
         case_hits=list(_CASE_RE.finditer(txt))
