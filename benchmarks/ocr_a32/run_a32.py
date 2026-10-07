@@ -35,7 +35,7 @@ def wer(ref,hyp):
 
 def critical_tokens(s):
     s=norm(s)
-    return set(re.findall(r"(?<!\\d)\\d[\\d.\\-]{2,}(?!\\d)",s))
+    return set(re.findall(r"(?<!\d)\d[\d.\-]{2,}(?!\d)",s))
 
 def critical_recall(ref,hyp):
     r=critical_tokens(ref); h=critical_tokens(hyp)
