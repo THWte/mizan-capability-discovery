@@ -1,60 +1,148 @@
 # MIZAN Capability Discovery
 
-MIZAN GitHub Capability Census: a structured process for discovering, evaluating, and
-integrating open-source capabilities into MIZAN — treating GitHub as a living
-capability ecosystem rather than a passive code archive.
+[![A27-A30 Long Documents](https://github.com/THWte/mizan-capability-discovery/actions/workflows/a27-a30-long-documents.yml/badge.svg)](https://github.com/THWte/mizan-capability-discovery/actions/workflows/a27-a30-long-documents.yml)
+[![A31 Real Long PDF Windows Gate](https://github.com/THWte/mizan-capability-discovery/actions/workflows/a31-real-long-pdf-windows.yml/badge.svg)](https://github.com/THWte/mizan-capability-discovery/actions/workflows/a31-real-long-pdf-windows.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Why this exists
+**MIZAN Capability Discovery** is the public architecture, evaluation, and integration-governance repository for MIZAN: a legal-intelligence platform designed around provenance, evidence discipline, long-document processing, retrieval, reasoning, and governed agent workflows.
 
-MIZAN should not adopt a project just because it is popular. Each candidate is
-evaluated for the specific gap it fills in MIZAN's architecture (document
-intelligence, knowledge graph, retrieval, agent runtime, observability, legal/Arabic
-domain fit), then given one decision: **REUSE / EXTEND / CONNECT / INSPIRE / REJECT**.
+> **Public repository boundary:** this repository contains architecture, contracts, synthetic fixtures, benchmarks, and tests. It must not contain real case files, personal data, credentials, private local databases, or confidential runtime logs.
 
-## Architecture invariants (normative)
+## Why this repository exists
 
-Before any capability evaluation result is treated as final, it must comply
-with MIZAN's fixed architectural invariants — see
-[`docs/architecture/ARCHITECTURAL_INVARIANTS.md`](docs/architecture/ARCHITECTURAL_INVARIANTS.md)
-and the decision record in
-[`docs/architecture/adr/ADR-0001-architectural-invariants.md`](docs/architecture/adr/ADR-0001-architectural-invariants.md).
-These invariants (e.g. "MIZAN owns identity and stable locators",
-"Observation ≠ Evidence ≠ Fact ≠ Accepted Fact") are constraints every
-engine integration must satisfy, not suggestions. Versioned contracts that
-implement these invariants concretely live in [`contracts/`](contracts/)
-(currently skeletons); architecture-level validation test placeholders live
-in [`tests/architecture/`](tests/architecture/).
+MIZAN does not adopt an engine merely because it is popular or technically impressive. A capability is evaluated against explicit architectural constraints, benchmarked where possible, and assigned a deliberate integration decision such as:
 
-## Structure
+`REUSE / EXTEND / CONNECT / DUAL-ENGINE / REPLACE / REJECT`
+
+The core principle is:
+
+> **Extraction is not evidence. Verification is not admission. Retrieval is not authority. Simulation is not fact.**
+
+## Current status
+
+This repository is an **active research-and-architecture program**, not a production distribution of the full private MIZAN runtime.
+
+The merged baseline on `main` includes:
+
+- architectural invariants and versioned contracts;
+- agent-society governance and approval controls;
+- document capability routing;
+- evidence-resolution foundations;
+- canonical document flow;
+- legal citation architecture;
+- retrieval and embedding benchmarks;
+- hybrid retrieval fabric;
+- knowledge and reasoning foundations;
+- runtime/release gates;
+- long-document streaming and checkpointing;
+- selective OCR routing;
+- hierarchical Arabic legal segmentation;
+- real 100-page PDF processing on Windows CI.
+
+See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for the current merged baseline and intentionally unresolved areas.
+
+## Architectural invariants
+
+MIZAN integrations are constrained by [ARCHITECTURAL_INVARIANTS.md](docs/architecture/ARCHITECTURAL_INVARIANTS.md). Among the most important:
+
+- `Observation != Evidence != Fact != Accepted Fact`
+- `Retrieval != Evidence Authority`
+- `Document Identity != File Identity`
+- stable locators are owned by MIZAN, not by extraction/retrieval engines;
+- source provenance must remain traceable back to a source artifact and SHA-256;
+- cross-case linking must never silently import a fact into another case.
+
+## Capability pipeline
+
+```text
+SOURCE
+  -> Identity
+  -> Routing
+  -> Extraction Candidate
+  -> Raw Observation
+  -> Evidence Resolution
+  -> Canonical Flow
+  -> Citation
+  -> Retrieval
+  -> Knowledge
+  -> Candidate Fact
+  -> Verification
+  -> Legal Reasoning
+  -> Governed Runtime
+```
+
+For large documents, MIZAN adds:
+
+```text
+PDF
+  -> Page Census
+  -> Direct Text / Selective OCR
+  -> Page-Level Checkpointing
+  -> Legal Segmentation
+  -> Traceable Spans
+  -> Retrieval / Citation
+```
+
+## Repository structure
 
 | Path | Purpose |
 |---|---|
-| [`docs/capability-census-issue.md`](docs/capability-census-issue.md) | The formal initiative write-up (goal, scope, decision model, acceptance criteria) |
-| [`docs/architecture/ARCHITECTURAL_INVARIANTS.md`](docs/architecture/ARCHITECTURAL_INVARIANTS.md) | Normative architectural constraints every engine integration must satisfy |
-| [`docs/architecture/adr/`](docs/architecture/adr/) | Architecture Decision Records |
-| [`contracts/`](contracts/) | Versioned contract specifications (canonical, provenance, identity, stable-locator) implementing the invariants |
-| [`tests/architecture/`](tests/architecture/) | Architecture-level validation test placeholders |
-| [`templates/evaluation-template.md`](templates/evaluation-template.md) | Standard per-project evaluation template |
-| [`evaluations/`](evaluations/) | Completed evaluations for each candidate project |
-| [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) | MIZAN Compatibility Score matrix (scored 1–10 across 12 dimensions) |
-| [`research/arabic-ocr-legal-nlp.md`](research/arabic-ocr-legal-nlp.md) | Arabic OCR, Legal NLP, Entity Resolution, and Temporal Graph domain research |
-| [`docs/roadmap.md`](docs/roadmap.md) | Phased integration roadmap (Phase 1–3) |
+| `contracts/` | Versioned architecture and data contracts |
+| `docs/architecture/` | Normative architecture documents and ADRs |
+| `docs/architecture/adr/` | Architecture Decision Records |
+| `agents/` | Governed MIZAN agent components |
+| `.github/agents/` | GitHub agent profiles |
+| `benchmarks/` | Reproducible capability benchmarks |
+| `evaluations/` | Capability/project evaluations |
+| `research/` | Research notes and comparative analysis |
+| `tests/architecture/` | Architectural invariant tests |
+| `tests/contracts/` | Contract acceptance tests |
+| `.github/workflows/` | CI gates and benchmark workflows |
 
-## Phase 1 candidates (highest priority)
+## Public / private boundary
 
-- [Langfuse](evaluations/langfuse.md) — observability & evaluation — **REUSE/EXTEND**
-- [Docling](evaluations/docling.md) — document intelligence — **EXTEND/CONNECT**
-- [pgvector](evaluations/pgvector.md) — hybrid semantic search — **REUSE/EXTEND**
-- [Haystack 3](evaluations/haystack3.md) — RAG/guardrail patterns — **EVALUATE**
+### Safe for this repository
 
-## Phase 2 candidates (deep architectural evaluation)
+- architecture documents;
+- contracts and schemas;
+- synthetic fixtures;
+- benchmark harnesses and non-sensitive results;
+- test code;
+- public-source capability research.
 
-- [Graphiti](evaluations/graphiti.md) — temporal knowledge graph — **EVALUATE STRONGLY**
-- [LangGraph](evaluations/langgraph.md) — agent runtime comparison — **EVALUATE**
+### Never commit here
 
-## Phase 3 (reference only)
+- real court judgments or case files belonging to the owner;
+- national IDs, IBANs, phone numbers, addresses, or other personal data;
+- private MIZAN databases or case memory;
+- API keys, secrets, tokens, cookies, or credentials;
+- local runtime logs containing case content;
+- confidential client or litigation material.
 
-- [Paperless-ngx](evaluations/paperless-ngx.md) — **INSPIRE/CONNECT**
-- [Microsoft GraphRAG](evaluations/microsoft-graphrag.md) — **INSPIRE/REJECT**
+See [SECURITY.md](SECURITY.md).
 
-See [`docs/roadmap.md`](docs/roadmap.md) for the full sequencing and exit criteria.
+## Development discipline
+
+Material changes should normally follow:
+
+```text
+DISCOVER -> MODEL -> CONTRACT -> TEST -> BENCHMARK -> REVIEW -> MERGE
+```
+
+A green unit test is not sufficient for a consequential capability. Runtime behavior, failure modes, provenance, and architecture regressions must also be considered.
+
+## Contributing
+
+This repository currently represents an owner-directed R&D program. Contributions and experimental branches should follow [CONTRIBUTING.md](CONTRIBUTING.md), preserve the architecture invariants, and use the provided pull-request template.
+
+## Security
+
+If you discover exposed credentials, personal data, unsafe provenance handling, or a path that could promote unverified model output into trusted case knowledge, follow [SECURITY.md](SECURITY.md) and avoid publishing sensitive details in a public issue.
+
+## License
+
+Released under the [MIT License](LICENSE).
+
+---
+
+**MIZAN** — one user-facing intelligence, many independently testable engines, one governed case context.
