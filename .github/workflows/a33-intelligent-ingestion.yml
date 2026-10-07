@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'agents/mizan_agents/intelligent_document_ingestion.py'
+      - 'agents/mizan_agents/document_authority.py'
       - 'tests/a33/**'
       - 'benchmarks/long_documents/run_a33.py'
       - 'docs/architecture/A33_INTELLIGENT_DOCUMENT_INGESTION.md'
@@ -27,7 +28,7 @@ jobs:
       - name: A33 unit and traceability tests
         env:
           PYTHONPATH: agents
-        run: python -m pytest tests/a33/test_intelligent_ingestion.py tests/long_documents/test_long_document_stack.py -q
+        run: python -m pytest tests/a33 tests/long_documents/test_long_document_stack.py -q
       - name: A33 24-page judgment-like PDF end-to-end
         env:
           PYTHONPATH: agents
