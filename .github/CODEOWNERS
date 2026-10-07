@@ -1,0 +1,8 @@
+# MIZAN public architecture and capability repository
+* @THWte
+
+# High-impact architecture, contracts, and CI remain owner-reviewed.
+/contracts/ @THWte
+/docs/architecture/ @THWte
+/.github/workflows/ @THWte
+/agents/ @THWte
