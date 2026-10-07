@@ -1,0 +1,46 @@
+name: Capability proposal
+description: Propose a capability for MIZAN evaluation
+title: "[CAPABILITY] "
+labels: ["capability"]
+body:
+  - type: input
+    id: capability
+    attributes:
+      label: Capability
+      description: What capability is being proposed?
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: MIZAN gap
+      description: What current gap does it address?
+    validations:
+      required: true
+  - type: dropdown
+    id: decision
+    attributes:
+      label: Initial integration hypothesis
+      options:
+        - REUSE
+        - EXTEND
+        - CONNECT
+        - DUAL-ENGINE
+        - REPLACE
+        - REJECT / REFERENCE ONLY
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / benchmark plan
+      description: How should the capability be evaluated?
+    validations:
+      required: true
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Architecture
+      options:
+        - label: The proposal preserves provenance and does not silently promote model output to trusted fact.
+          required: true
