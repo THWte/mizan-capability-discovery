@@ -15,6 +15,7 @@ from pathlib import Path
 from .long_document_stream import PageInput, PageResult, process_pages_streaming
 from .selective_ocr import route_page, PageRoute
 from .legal_segmentation import segment_page, LegalSpan
+from .document_authority import AuthorityPage, AuthoritySegment, AuthorityKind, classify_authority_pages, build_authority_segments
 
 class IngestionError(ValueError):
     pass
@@ -66,6 +67,8 @@ class IngestedLegalDocument:
     human_review_pages: tuple[int, ...]
     raw_text_preserved: bool=True
     accepted_fact_count: int=0
+    authority_pages: tuple[AuthorityPage, ...]=()
+    authority_segments: tuple[AuthoritySegment, ...]=()
 
     def __post_init__(self):
         if self.accepted_fact_count != 0:
@@ -241,8 +244,11 @@ def ingest_pdf(
     ):
         pass
 
+    authority_pages=classify_authority_pages((p.page_number,p.raw_text) for p in ingested)
+    authority_segments=build_authority_segments(authority_pages)
     return IngestedLegalDocument(
         document_id=document_id,source_sha256=source_sha,page_count=len(inputs),
         pages=tuple(ingested),ocr_pages=tuple(sorted(set(ocr_pages))),
         human_review_pages=tuple(sorted(set(review_pages))),
+        authority_pages=authority_pages,authority_segments=authority_segments,
     )
