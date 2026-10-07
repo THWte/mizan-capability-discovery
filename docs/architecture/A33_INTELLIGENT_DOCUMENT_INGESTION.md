@@ -40,3 +40,21 @@ The Windows end-to-end gate generates an actual 24-page judgment-like Arabic PDF
 - architecture/contracts regression remains green.
 
 No real case data is committed or uploaded.
+
+
+## A33.1 — Authority Boundary & Mixed-Document Detection
+A physical file is not assumed to have one authority. MIZAN classifies contiguous page ranges independently.
+
+Initial authority classes:
+- `OFFICIAL_COURT`
+- `APPENDED_ANALYSIS`
+- `LAWYER_MEMORANDUM`
+- `ATTACHMENT`
+- `USER_ADDED`
+- `UNKNOWN`
+
+A repeated court header is not sufficient to preserve court authority after an explicit official-end signal and a strong analysis-transition marker. Conversely, a quoted memorandum or the phrase “analysis of the judgment” inside the live official sequence does not demote a court page.
+
+Authority classification is provenance metadata, not evidence resolution and not fact acceptance. Ambiguous material remains `UNKNOWN`; it is never silently promoted to official authority.
+
+The regression fixture reproduces a 51-page mixed file synthetically: pages 1–31 are an official judgment sequence and pages 32–51 are an appended analysis that deliberately retains an official-looking header. No real case content is stored in the repository.
